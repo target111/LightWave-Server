@@ -8,10 +8,10 @@
 <p align="center">
 <img src="https://img.shields.io/badge/Python-3776AB.svg?style&logo=Python&logoColor=white" alt="Python" />
 </p>
-<img src="https://img.shields.io/github/languages/top/target111/LightWave-Server.git?style&color=5D6D7E" alt="GitHub top language" />
-<img src="https://img.shields.io/github/languages/code-size/target111/LightWave-Server.git?style&color=5D6D7E" alt="GitHub code size in bytes" />
-<img src="https://img.shields.io/github/commit-activity/m/target111/LightWave-Server.git?style&color=5D6D7E" alt="GitHub commit activity" />
-<img src="https://img.shields.io/github/license/target111/LightWave-Server.git?style&color=5D6D7E" alt="GitHub license" />
+<img src="https://img.shields.io/github/languages/top/target111/LightWave-Server?style&color=81a1c1" alt="GitHub top language" />
+<img src="https://img.shields.io/github/languages/code-size/target111/LightWave-Server?style&color=a3be8c&" alt="GitHub code size in bytes" />
+<img src="https://img.shields.io/github/commit-activity/m/target111/LightWave-Server?style&color=bf616a" alt="GitHub commit activity" />
+<img src="https://img.shields.io/github/license/target111/LightWave-Server?style&color=b48ead" alt="GitHub license" />
 </div>
 
 ---
@@ -20,13 +20,12 @@
 - [📒 Table of Contents](#-table-of-contents)
 - [📍 Overview](#-overview)
 - [⚙️ Features](#-features)
-- [📂 Project Structure](#project-structure)
-- [🧩 Modules](#modules)
+- [📂 Project Structure](#-project-structure)
+- [🧩 Modules](#-modules)
 - [🚀 Getting Started](#-getting-started)
 - [🗺 Roadmap](#-roadmap)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
-- [👏 Acknowledgments](#-acknowledgments)
 
 ---
 
