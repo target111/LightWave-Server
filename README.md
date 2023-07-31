@@ -19,7 +19,7 @@
 ## 📒 Table of Contents
 - [📒 Table of Contents](#-table-of-contents)
 - [📍 Overview](#-overview)
-- [⚙️ Features](#-features)
+- [⚙️ Features](#%EF%B8%8F-features)
 - [📂 Project Structure](#-project-structure)
 - [🧩 Modules](#-modules)
 - [🚀 Getting Started](#-getting-started)
