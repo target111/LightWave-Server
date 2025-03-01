@@ -3,7 +3,7 @@
 <img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/ec559a9f6bfd399b82bb44393651661b08aaf7ba/icons/folder-markdown-open.svg" width="100" />
 <br>LightWave-Server
 </h1>
-<h3>◦ LightWave: An HTTP API server for controlling ws281x lights. </h3>
+<h3>◦ LightWave: An HTTP API server for controlling ws281x LED lights. </h3>
 
 <p align="center">
 <img src="https://img.shields.io/badge/Python-3776AB.svg?style&logo=Python&logoColor=white" alt="Python" />
@@ -19,20 +19,26 @@
 ## 📒 Table of Contents
 - [📒 Table of Contents](#-table-of-contents)
 - [📍 Overview](#-overview)
-- [⚙️ Features](#%EF%B8%8F-features)
+- [⚙️ Features](#️-features)
 - [📂 Project Structure](#-project-structure)
-- [🧩 Modules](#-modules)
 - [🚀 Getting Started](#-getting-started)
-- [🗺 Roadmap](#-roadmap)
+  - [✔️ Prerequisites](#️-prerequisites)
+  - [📦 Installation](#-installation)
+  - [🎮 Running the Server](#-running-the-server)
+  - [🌈 Using Effects](#-using-effects)
+  - [🔧 Configuration](#-configuration)
+- [🧩 API Endpoints](#-api-endpoints)
+- [✨ Creating Custom Effects](#-creating-custom-effects)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
 
 ---
 
-
 ## 📍 Overview
 
-The LightWave-Server project is a Python-based server for controlling ws281x LED lights. It provides functionalities for managing presets, setting colors and brightness, and controlling the LED state. The project offers a powerful plugin system that provides total control for creating and managing different effects on LED strips, allowing users to easily create dynamic and visually appealing lighting setups.
+LightWave-Server is a modern Python-based server for controlling WS281X LED lights (NeoPixels) via a RESTful HTTP API. It provides an extensive framework for creating, managing, and running dynamic LED effects with customizable parameters. The project is designed with flexibility in mind, allowing both direct color control and complex animated effects.
+
+The new version (2.0.0) has been completely refactored with a proper package structure, improved configuration system, comprehensive error handling, proper logging, and extensive documentation.
 
 ---
 
@@ -40,52 +46,54 @@ The LightWave-Server project is a Python-based server for controlling ws281x LED
 
 | Feature                | Description                                                                                                                                                                                                                |
 |------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **⚙️ Architecture**     | The codebase follows a modular design, with separate files for different functionalities such as server control, LED management, and effects. It implements the FastAPI framework to create a RESTful API for controlling the LEDs.                                  |
-| **📖 Documentation**    | TBD                                                                                                                                                                                                                              |
-| **🔗 Dependencies**     | The core dependencies for the system are the `FastAPI` library for creating the RESTful API and the `adafruit-circuitpython-neopixel` library for controlling the Raspberry Pi GPIO pins. These dependencies are essential for the system to interact with the LED lights and expose the functionality through the API. |
-| **🧩 Modularity**       | The codebase demonstrates a decent level of modularity, organizing different functionalities into separate files. This allows components to be developed and maintained independently, making it easier to extend or modify specific parts of the system.                                |
-| **✔️ Testing**          | The code lacks explicit tests. The creation of unit tests to verify the behavior and correctness of individual functionalities, as well as integration tests to ensure the system works as a whole, could enhance stability and maintainability.                                          |
-| **⚡️ Performance**      | Since the codebase is designed for controlling LED lights, the impact on hardware resources such as CPU and memory should be minimal.                                           |
-| **🔐 Security**         | No access control has been implemented for the API server at the moment.          |                                                         |
-| **🔌 Integrations**     | A user TUI client is being developed.                 |
+| **⚙️ Architecture**     | Clean and modular architecture with proper separation of concerns between LED control, effects system, configuration, and API.                                   |
+| **🎨 Effect System**    | Flexible effect system with parameterization support, dynamic loading, and automatic registration.                                                               |
+| **⚡️ Performance**      | Optimized frame rate management and efficient LED control with hardware or simulated controls.                                                                  |
+| **🔧 Configuration**    | Environment variable-based configuration with sensible defaults and typed settings classes.                                                                     |
+| **📚 API**              | Well-documented FastAPI-based REST API with comprehensive validation and error handling.                                                                        |
+| **🔌 Extensibility**    | Easy to extend with new effects by adding a single Python file.                                                                                                |
+| **🏭 Mock Mode**        | Support for a mock mode to run without hardware for development and testing.                                                                                   |
+| **🔍 Logging**          | Comprehensive logging with configurable log levels.                                                                                                            |
 
 ---
-
 
 ## 📂 Project Structure
 
+The codebase is organized into a proper Python package with the following structure:
 
-
-
----
-
-## 🧩 Modules
-
-<details closed><summary>Root</summary>
-
-| File                                                                           | Summary                                                                                                                                                                                                                                                                                |
-| ---                                                                            | ---                                                                                                                                                                                                                                                                                    |
-| [main.py](https://github.com/target111/LightWave-Server.git/blob/main/main.py) | The code snippet imports necessary modules and creates an object of a custom server class (LightWave), with a LED object and an effect registry object passed as arguments. This enables control of LEDs connected to a specific PIN, applying different effects through the registry. |
-
-</details>
-
-<details closed><summary>Lib</summary>
-
-| File                                                                                   | Summary                                                                                                                                                                                                                                                                                                                                                                    |
-| ---                                                                                    | ---                                                                                                                                                                                                                                                                                                                                                                        |
-| [server.py](https://github.com/target111/LightWave-Server.git/blob/main/lib/server.py) | This code defines a FastAPI application for controlling LED lights. It provides functionalities for managing presets, setting colors and brightness, and controlling the LED state.                                                                                                                                                                                        |
-| [led.py](https://github.com/target111/LightWave-Server.git/blob/main/lib/led.py)       | The provided code snippet includes classes and functions for creating and managing LED effects. It consists of an abstract base class for effects, an effect registry, an LED class for controlling the LEDs, and a mock LED class for testing. The code allows for registering and retrieving effects, setting LED colors and brightness, and shows results in real-time. |
-| [config.py](https://github.com/target111/LightWave-Server.git/blob/main/lib/config.py) | The code snippet defines the number of LEDs connected to the board and sets the pin used for controlling them.                                                                                                                                                                                                                                                             |
-
-</details>
-
-<details closed><summary>Effects</summary>
-
-| File                                                                                             | Summary                                                                                                                                                                                                                                                                                                                                             |
-| ---                                                                                              | ---                                                                                                                                                                                                                                                                                                                                                 |
-| [rainbow.py](https://github.com/target111/LightWave-Server.git/blob/main/lib/effects/rainbow.py) | The provided code snippet defines a RainbowCycle class that represents a rainbow effect on an LED strip. It does this by iterating over each pixel on the strip and calculating the RGB values based on the current position in a color wheel. The colors are then set on the pixels and displayed. The effect continues until the code is stopped. |
-
-</details>
+```
+lightwave-server/
+├── lightwave/               # Main package
+│   ├── __init__.py          # Package initialization
+│   ├── __main__.py          # Entry point for CLI usage
+│   ├── api/                 # API module
+│   │   ├── __init__.py
+│   │   ├── models.py        # Pydantic models for API
+│   │   └── server.py        # FastAPI server implementation
+│   ├── config/              # Configuration module
+│   │   ├── __init__.py
+│   │   └── settings.py      # Configuration classes
+│   ├── controller/          # LED controller module
+│   │   ├── __init__.py
+│   │   ├── led.py           # LED controller classes
+│   │   └── manager.py       # LED manager
+│   ├── effects/             # Effects module
+│   │   ├── __init__.py
+│   │   ├── base.py          # Base effect class
+│   │   ├── registry.py      # Effect registry
+│   │   ├── rainbow.py       # Rainbow effect
+│   │   ├── pulse.py         # Pulse effect
+│   │   └── twinkle.py       # Twinkle effect
+│   └── utils/               # Utilities
+│       ├── __init__.py
+│       ├── color.py         # Color utilities
+│       └── logging.py       # Logging utilities
+├── main.py                  # Simple entry point for backward compatibility
+├── setup.py                 # Package setup
+├── requirements.txt         # Dependencies
+├── LICENSE                  # License file
+└── README.md                # This file
+```
 
 ---
 
@@ -94,8 +102,9 @@ The LightWave-Server project is a Python-based server for controlling ws281x LED
 ### ✔️ Prerequisites
 
 Before you begin, ensure that you have the following prerequisites installed:
-> - `ℹ️ fastapo[all]`
-> - `ℹ️ adafruit-circuitpython-neopixel`
+- Python 3.9 or higher
+- Raspberry Pi or similar device with GPIO pins (for hardware mode)
+- WS281X LED strip connected to the GPIO pins
 
 ### 📦 Installation
 
@@ -109,52 +118,180 @@ git clone https://github.com/target111/LightWave-Server.git
 cd LightWave-Server
 ```
 
-3. Install the dependencies:
+3. Install the package with its dependencies:
+```sh
+pip install -e .
+```
+
+Or install from requirements.txt:
 ```sh
 pip install -r requirements.txt
 ```
 
-### 🎮 Using LightWave-Server
+### 🎮 Running the Server
 
+There are several ways to run the server:
+
+1. Using the CLI command (if installed with pip):
+```sh
+lightwave
+```
+
+2. Running the module directly:
+```sh
+python -m lightwave
+```
+
+3. Using the main.py entry point with Uvicorn:
 ```sh
 uvicorn main:app --host 0.0.0.0 --port 8080
 ```
+
+### 🌈 Using Effects
+
+Once the server is running, you can control the LEDs via the API:
+
+1. List available effects:
+```sh
+curl http://localhost:8080/api/effects
+```
+
+2. Get info about a specific effect:
+```sh
+curl http://localhost:8080/api/effects/RainbowEffect
+```
+
+3. Start an effect with custom parameters:
+```sh
+curl -X POST -H "Content-Type: application/json" -d '{"name": "RainbowEffect", "parameters": {"speed": 1.0, "width": 2.0}}' http://localhost:8080/api/effects/start
+```
+
+4. Set a solid color:
+```sh
+curl -X POST -H "Content-Type: application/json" -d '{"color": "#ff0000"}' http://localhost:8080/api/leds/color
+```
+
+5. Change brightness:
+```sh
+curl -X POST -H "Content-Type: application/json" -d '{"brightness": 0.8}' http://localhost:8080/api/leds/brightness
+```
+
+### 🔧 Configuration
+
+LightWave-Server can be configured using environment variables:
+
+| Variable                    | Description                | Default Value |
+|-----------------------------|----------------------------|--------------|
+| `LIGHTWAVE_HOST`            | Server host                | 0.0.0.0      |
+| `LIGHTWAVE_PORT`            | Server port                | 8080         |
+| `LIGHTWAVE_DEBUG`           | Debug mode                 | false        |
+| `LIGHTWAVE_LOG_LEVEL`       | Log level                  | INFO         |
+| `LIGHTWAVE_CORS_ORIGINS`    | CORS origins (comma-separated) | *        |
+| `LIGHTWAVE_LED_COUNT`       | Number of LEDs             | 300          |
+| `LIGHTWAVE_LED_PIN`         | GPIO pin for LEDs          | D18          |
+| `LIGHTWAVE_LED_MODE`        | LED mode (real or mock)    | real         |
+| `LIGHTWAVE_LED_BRIGHTNESS`  | Default brightness         | 0.5          |
+| `LIGHTWAVE_EFFECT_DEFAULT_FPS` | Default effect FPS      | 30           |
+
 ---
 
+## 🧩 API Endpoints
 
-## 🗺 Roadmap
+The API provides the following endpoints:
 
-> - [ ] `ℹ️  Task 1: Make sure that an error returns a consistent json response`
-> - [ ] `ℹ️  Task 2: Add more effects`
-> - [ ] `ℹ️  Task 3: Provide better documentation`
+**Effects Endpoints:**
+- `GET /api/effects` - Get list of available effects
+- `GET /api/effects/{name}` - Get detailed information about an effect
+- `GET /api/effects/status` - Get status of the currently running effect
+- `POST /api/effects/start` - Start an effect
+- `POST /api/effects/stop` - Stop the currently running effect
 
+**LED Control Endpoints:**
+- `POST /api/leds/color` - Set the color of all LEDs
+- `POST /api/leds/brightness` - Set the brightness of all LEDs
+- `POST /api/leds/clear` - Turn off all LEDs
+
+For detailed documentation, visit the OpenAPI docs at `/docs` when the server is running.
+
+---
+
+## ✨ Creating Custom Effects
+
+Creating a custom effect is easy. Just create a new Python file in the `lightwave/effects` directory:
+
+```python
+from lightwave.effects.base import Effect, ParameterSpec, ParameterType
+from lightwave.utils import get_logger, ColorValue
+
+logger = get_logger(__name__)
+
+class MyCustomEffect(Effect):
+    """
+    My custom effect description.
+    
+    More detailed description here.
+    """
+    
+    # Define parameters with metadata
+    parameters = [
+        ParameterSpec(
+            name="speed",
+            type=ParameterType.FLOAT,
+            description="Speed of the effect",
+            default=1.0,
+            min_value=0.1,
+            max_value=10.0,
+        ),
+        ParameterSpec(
+            name="color",
+            type=ParameterType.COLOR,
+            description="Primary color",
+            default=(255, 0, 0),  # Red
+        ),
+    ]
+    
+    def __init__(self, controller, **kwargs):
+        """Initialize the effect."""
+        super().__init__(controller, **kwargs)
+        
+        # Initialize state
+        self._step = 0
+        
+        # Set initial FPS
+        self.fps = 30
+    
+    def render_frame(self) -> None:
+        """Render a single frame of the effect."""
+        # Get parameters
+        speed = self.get_parameter("speed")
+        color = self.get_parameter("color")
+        
+        # Implementation goes here
+        # Use self.controller to control the LEDs
+        
+        # Update the display
+        self.controller.show()
+```
+
+The effect will be automatically discovered and registered when the server starts.
 
 ---
 
 ## 🤝 Contributing
 
 Contributions are always welcome! Please follow these steps:
-1. Fork the project repository. This creates a copy of the project on your account that you can modify without affecting the original project.
-2. Clone the forked repository to your local machine using a Git client like Git or GitHub Desktop.
-3. Create a new branch with a descriptive name (e.g., `new-feature-branch` or `bugfix-issue-123`).
-```sh
-git checkout -b new-feature-branch
-```
-4. Make changes to the project's codebase.
-5. Commit your changes to your local branch with a clear commit message that explains the changes you've made.
-```sh
-git commit -m 'Implemented new feature.'
-```
-6. Push your changes to your forked repository on GitHub using the following command
-```sh
-git push origin new-feature-branch
-```
-7. Create a new pull request to the original project repository. In the pull request, describe the changes you've made and why they're necessary.
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature/my-feature`)
+3. Make your changes
+4. Run the tests and linters
+5. Commit your changes (`git commit -m 'Add new feature'`)
+6. Push to the branch (`git push origin feature/my-feature`)
+7. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-This project is licensed under the `ℹ️  MIT` License. See the [LICENSE](https://github.com/target111/LightWave-Server/LICENSE) file for additional info.
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/target111/LightWave-Server/LICENSE) file for details.
 
 ---
