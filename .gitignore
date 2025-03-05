@@ -26,3 +26,6 @@ ENV/
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# Server files
+server.pid
