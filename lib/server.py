@@ -72,7 +72,7 @@ class LightWave(FastAPI):
         @self.post("/presets/start")
         def start_preset(
             preset_name: Annotated[str, Body(description="Name of the preset to start")],
-            args: Annotated[Dict[str, Any], Body(default={}, description="Arguments for the effect")]
+            args: Annotated[Dict[str, Any], Body(description="Arguments for the effect")] = None
         ):
             """
             Start a preset
@@ -84,6 +84,9 @@ class LightWave(FastAPI):
             Returns:
                 Null
             """
+            if args is None:
+                args = {}
+
             if self.running:
                 self.running.stop()
                 # Wait for thread to actually stop? 
