@@ -1,6 +1,6 @@
 <div align="center">
 <h1 align="center">
-<img src="./.github/logo.svg" width="100" />
+<img src="./.github/logo.svg" width="200" height="200" />
 <br>LightWave-Server
 </h1>
 <h3>◦ LightWave: A High-Performance HTTP API for Addressable LEDs</h3>
