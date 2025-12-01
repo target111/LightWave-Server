@@ -1,52 +1,44 @@
 from lib.led import EffectBase
-import time
 
 class CyberScanner(EffectBase):
     """
     A moving 'eye' that leaves a fading trail behind it.
     """
-    def _run(self):
-        # Configuration
-        eye_color = (255, 0, 255) # Magenta (Cyberpunk style)
-        decay = 0.95              # How fast the trail fades (lower = shorter trail)
-        speed = 0.03              # Speed of the eye
+    def __init__(self, led, **kwargs):
+        super().__init__(led, **kwargs)
+        self.eye_color = (255, 0, 255)
+        self.decay = 0.97 # Slower decay for higher FPS
+        # Original speed 0.03 (33 FPS). 1 pixel/frame. 33 px/sec.
+        # 60 FPS. 33 px/sec => 0.55 px/frame.
+        self.speed = 0.55
         
-        # Internal buffer to store brightness of every pixel (0.0 to 1.0)
-        # We use this to calculate physics without querying the hardware
-        heat = [0.0] * self.led.count
+        self.heat = [0.0] * self.led.count
+        self.position = 0.0
+        self.direction = 1
+
+    def tick(self):
+        # Fade out
+        for i in range(self.led.count):
+            self.heat[i] = self.heat[i] * self.decay
         
-        position = 0
-        direction = 1
+        # Set head
+        pos_idx = int(self.position)
+        if 0 <= pos_idx < self.led.count:
+            self.heat[pos_idx] = 1.0
         
-        while not self.stopped.is_set():
-            # 1. Fade out everything slightly
-            for i in range(self.led.count):
-                heat[i] = heat[i] * decay
-            
-            # 2. Set the "Head" of the scanner to full brightness
-            heat[position] = 1.0
-            
-            # 3. Render the output
-            for i in range(self.led.count):
-                # Calculate color brightness based on heat
-                pixel_r = int(eye_color[0] * heat[i])
-                pixel_g = int(eye_color[1] * heat[i])
-                pixel_b = int(eye_color[2] * heat[i])
-                
-                self.led.set_pixel(i, (pixel_r, pixel_g, pixel_b))
-            
-            self.led.show()
-            
-            # 4. Move the eye
-            position += direction
-            
-            # Bounce logic
-            if position >= self.led.count - 1:
-                position = self.led.count - 1
-                direction = -1
-            elif position <= 0:
-                position = 0
-                direction = 1
-                
-            if self.stopped.wait(speed):
-                return
+        # Render
+        for i in range(self.led.count):
+            pixel_r = int(self.eye_color[0] * self.heat[i])
+            pixel_g = int(self.eye_color[1] * self.heat[i])
+            pixel_b = int(self.eye_color[2] * self.heat[i])
+            self.led.set_pixel(i, (pixel_r, pixel_g, pixel_b))
+        
+        # Move
+        self.position += (self.direction * self.speed)
+        
+        if self.position >= self.led.count - 1:
+            self.position = self.led.count - 1
+            self.direction = -1
+        elif self.position <= 0:
+            self.position = 0
+            self.direction = 1

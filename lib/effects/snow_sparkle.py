@@ -5,32 +5,39 @@ class SnowSparkle(EffectBase):
     """
     background with random white sparkles popping in and out.
     """
-    def _run(self):
-        # Configuration
-        bg_color = (64, 160, 43) # Dim Green background
-        sparkle_color = (255, 255, 255) # White
-        sparkle_delay = 0.05 # How long the sparkle stays lit
-        frequency_delay = 0.05 # Delay between sparkles
+    def __init__(self, led, **kwargs):
+        super().__init__(led, **kwargs)
+        self.bg_color = (64, 160, 43)
+        self.sparkle_color = (255, 255, 255)
+        self.sparkle_delay = 0.05
+        self.frequency_delay = 0.05
         
-        # Set background once
-        self.led.set_color(bg_color)
+        self.state = 0 # 0 = Wait for sparkle, 1 = Sparkle active
+        self.timer = 0.0
+        self.next_event_time = 0.0
+        self.active_pixel = -1
         
-        while not self.stopped.is_set():
-            # Pick a random pixel
-            pixel = random.randint(0, self.led.count - 1)
-            
-            # Set to white
-            self.led.set_pixel(pixel, sparkle_color)
-            self.led.show()
-            
-            # Wait briefly (sparkle duration)
-            if self.stopped.wait(sparkle_delay):
-                return
-            
-            # Set back to background
-            self.led.set_pixel(pixel, bg_color)
-            self.led.show()
-            
-            # Randomize the delay slightly for a more natural look
-            if self.stopped.wait(random.uniform(0.02, frequency_delay * 2)):
-                return
+        self.led.set_color(self.bg_color)
+
+    def tick(self):
+        self.timer += (1.0 / 60.0) # Approx dt
+        
+        if self.state == 0: # Waiting to sparkle
+            if self.timer >= self.next_event_time:
+                # Trigger sparkle
+                self.active_pixel = random.randint(0, self.led.count - 1)
+                self.led.set_pixel(self.active_pixel, self.sparkle_color)
+                
+                self.state = 1
+                self.timer = 0.0
+                self.next_event_time = self.sparkle_delay
+                
+        elif self.state == 1: # Sparkle is on
+            if self.timer >= self.next_event_time:
+                # Turn off sparkle
+                if self.active_pixel != -1:
+                    self.led.set_pixel(self.active_pixel, self.bg_color)
+                
+                self.state = 0
+                self.timer = 0.0
+                self.next_event_time = random.uniform(0.02, self.frequency_delay * 2)

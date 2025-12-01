@@ -5,55 +5,44 @@ class StarryNight(EffectBase):
     """
     Randomly fades stars in and out smoothly.
     """
-    def _run(self):
-        # Configuration
-        density = 0.02 # Chance a dark pixel lights up
-        fade_speed = 15 # How fast brightness changes per frame (0-255)
+    def __init__(self, led, **kwargs):
+        super().__init__(led, **kwargs)
+        self.density = 0.02
+        # Original 15 per frame at 20 FPS (0.05s). 
+        # At 60 FPS, we need 1/3rd speed => 5.
+        self.fade_speed = 5 
         
-        # State definitions
-        STATE_OFF = 0
-        STATE_IN = 1
-        STATE_OUT = 2
+        self.STATE_OFF = 0
+        self.STATE_IN = 1
+        self.STATE_OUT = 2
         
-        # Initialize arrays
-        states = [STATE_OFF] * self.led.count
-        brightness = [0] * self.led.count
-        
-        color = (255, 255, 255) # White stars
+        self.states = [self.STATE_OFF] * self.led.count
+        self.brightness = [0] * self.led.count
+        self.color = (255, 255, 255)
 
-        while not self.stopped.is_set():
-            for i in range(self.led.count):
-                
-                # State Machine
-                if states[i] == STATE_OFF:
-                    if random.random() < density:
-                        states[i] = STATE_IN
-                        
-                elif states[i] == STATE_IN:
-                    brightness[i] += fade_speed
-                    if brightness[i] >= 255:
-                        brightness[i] = 255
-                        states[i] = STATE_OUT
-                        
-                elif states[i] == STATE_OUT:
-                    brightness[i] -= fade_speed
-                    if brightness[i] <= 0:
-                        brightness[i] = 0
-                        states[i] = STATE_OFF
-                
-                # Apply Color
-                # Optimization: Only write to LED if it's lit
-                if brightness[i] > 0:
-                    # Apply brightness to the color
-                    b_factor = brightness[i] / 255.0
-                    r = int(color[0] * b_factor)
-                    g = int(color[1] * b_factor)
-                    b = int(color[2] * b_factor)
-                    self.led.set_pixel(i, (r, g, b))
-                else:
-                    self.led.set_pixel(i, (0, 0, 0))
-
-            self.led.show()
+    def tick(self):
+        for i in range(self.led.count):
+            if self.states[i] == self.STATE_OFF:
+                if random.random() < (self.density / 3.0): # Adjust density for higher FPS check rate
+                    self.states[i] = self.STATE_IN
+                    
+            elif self.states[i] == self.STATE_IN:
+                self.brightness[i] += self.fade_speed
+                if self.brightness[i] >= 255:
+                    self.brightness[i] = 255
+                    self.states[i] = self.STATE_OUT
+                    
+            elif self.states[i] == self.STATE_OUT:
+                self.brightness[i] -= self.fade_speed
+                if self.brightness[i] <= 0:
+                    self.brightness[i] = 0
+                    self.states[i] = self.STATE_OFF
             
-            if self.stopped.wait(0.05):
-                return
+            if self.brightness[i] > 0:
+                b_factor = self.brightness[i] / 255.0
+                r = int(self.color[0] * b_factor)
+                g = int(self.color[1] * b_factor)
+                b = int(self.color[2] * b_factor)
+                self.led.set_pixel(i, (r, g, b))
+            else:
+                self.led.set_pixel(i, (0, 0, 0))
