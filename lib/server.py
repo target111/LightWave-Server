@@ -1,6 +1,7 @@
-from typing import Annotated, List
+from typing import Annotated, List, Dict, Any
 from fastapi import FastAPI, Body, HTTPException, Path
 from pydantic_extra_types.color import Color
+import time
 
 class LightWave(FastAPI):
     def __init__(self, led, effect_registry):
@@ -69,24 +70,40 @@ class LightWave(FastAPI):
             }
 
         @self.post("/presets/start")
-        def start_preset(preset_name: Annotated[str, Body(embed=True, description="Name of the preset to start")]):
+        def start_preset(
+            preset_name: Annotated[str, Body(description="Name of the preset to start")],
+            args: Annotated[Dict[str, Any], Body(default={}, description="Arguments for the effect")]
+        ):
             """
             Start a preset
 
             Args:
                 preset_name (str): Name of the preset to start
+                args (dict): Arguments to configure the effect
 
             Returns:
                 Null
             """
             if self.running:
                 self.running.stop()
+                # Wait for thread to actually stop? 
+                # EffectBase.stop() just sets event. run loop finishes.
+                # We should join ideally, or just wait a bit.
+                # But if we fade out immediately, we might contend.
+                # However, fade_out uses lock. running effect uses lock.
+                # They will serialize.
+                # We want effect to STOP writing.
+                self.running.join(timeout=1.0)
+                self.led.fade_out(0.5)
                 self.running = None
 
             if not self.effect_registry.is_effect(preset_name):
                 raise HTTPException(status_code=404, detail="Preset not found")
+            
+            # Ensure brightness is reset to full (or default) before starting new effect
+            self.led.set_brightness(1.0)
 
-            self.running = self.effect_registry.get(preset_name)(self.led)
+            self.running = self.effect_registry.get(preset_name)(self.led, **args)
             self.running.start()
 
         @self.post("/presets/stop")
@@ -101,6 +118,8 @@ class LightWave(FastAPI):
                 raise HTTPException(status_code=404, detail="No preset running")
 
             self.running.stop()
+            self.running.join(timeout=1.0)
+            self.led.fade_out(0.5)
             self.running = None
             self.led.clear()
 
@@ -214,6 +233,8 @@ class LightWave(FastAPI):
             """
             if self.running:
                 self.running.stop()
+                self.running.join(timeout=1.0)
+                self.led.fade_out(0.5)
                 self.running = None
 
             self.led.clear()
