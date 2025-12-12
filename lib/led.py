@@ -6,7 +6,10 @@ import inspect
 import datetime
 import time
 
+
 class EffectBase(abc.ABC, threading.Thread):
+    CONFIG_SCHEMA = []
+
     def __init__(self, led, **kwargs):
         super().__init__()
         self.led = led
@@ -23,10 +26,10 @@ class EffectBase(abc.ABC, threading.Thread):
         frame_time = 1.0 / self.target_fps
         while not self.stopped.is_set():
             start_loop = time.time()
-            
+
             self.tick()
             self.led.show()
-            
+
             # Enforce FPS
             elapsed = time.time() - start_loop
             wait_time = frame_time - elapsed
@@ -84,11 +87,17 @@ class EffectRegistry(object):
             raise KeyError(f"Effect {name} not found")
 
         return self.effects[name].__doc__
-    
+
+    def get_config_schema(self, name: str):
+        if not self.is_effect(name):
+            raise KeyError(f"Effect {name} not found")
+
+        return self.effects[name].CONFIG_SCHEMA
+
     def is_effect(self, name: str):
         if name not in self.effects:
             return False
-        
+
         return True
 
 
@@ -107,7 +116,7 @@ class LED(object):
             self.led.fill(color)
             if not self.auto_write:
                 self.led.show()
-    
+
     def set_brightness(self, brightness: float):
         with self.lock:
             self.led.brightness = brightness
@@ -133,16 +142,16 @@ class LED(object):
             return
 
         # We use get brightness from the neopixel object
-        # Note: reading brightness might not need lock if it's just a property, 
+        # Note: reading brightness might not need lock if it's just a property,
         # but modifying it does.
         current_brightness = self.led.brightness
-        
+
         for i in range(steps):
             # Linear fade
             b = current_brightness * (1.0 - (i / steps))
             self.set_brightness(b)
             time.sleep(1.0 / fps)
-        
+
         self.set_brightness(0)
         self.clear()
 

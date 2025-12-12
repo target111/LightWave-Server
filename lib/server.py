@@ -3,6 +3,7 @@ from fastapi import FastAPI, Body, HTTPException, Path
 from pydantic_extra_types.color import Color
 import time
 
+
 class LightWave(FastAPI):
     def __init__(self, led, effect_registry):
         super().__init__()
@@ -52,7 +53,11 @@ class LightWave(FastAPI):
             }
 
         @self.get("/presets/{preset_name}")
-        def get_preset_info(preset_name: Annotated[str, Path(description="Name of the preset to get info about")]):
+        def get_preset_info(
+            preset_name: Annotated[
+                str, Path(description="Name of the preset to get info about")
+            ],
+        ):
             """
             Get information about a specific preset
 
@@ -67,12 +72,17 @@ class LightWave(FastAPI):
 
             return {
                 "description": self.effect_registry.get_description(preset_name),
+                "args": self.effect_registry.get_config_schema(preset_name),
             }
 
         @self.post("/presets/start")
         def start_preset(
-            preset_name: Annotated[str, Body(description="Name of the preset to start")],
-            args: Annotated[Dict[str, Any], Body(description="Arguments for the effect")] = None
+            preset_name: Annotated[
+                str, Body(description="Name of the preset to start")
+            ],
+            args: Annotated[
+                Dict[str, Any], Body(description="Arguments for the effect")
+            ] = None,
         ):
             """
             Start a preset
@@ -89,7 +99,7 @@ class LightWave(FastAPI):
 
             if self.running:
                 self.running.stop()
-                # Wait for thread to actually stop? 
+                # Wait for thread to actually stop?
                 # EffectBase.stop() just sets event. run loop finishes.
                 # We should join ideally, or just wait a bit.
                 # But if we fade out immediately, we might contend.
@@ -102,7 +112,7 @@ class LightWave(FastAPI):
 
             if not self.effect_registry.is_effect(preset_name):
                 raise HTTPException(status_code=404, detail="Preset not found")
-            
+
             # Ensure brightness is reset to full (or default) before starting new effect
             self.led.set_brightness(1.0)
 
@@ -134,7 +144,7 @@ class LightWave(FastAPI):
                     embed=True,
                     description="A color type which supports many formats like hex, rgb, hsl, hsv, etc.",
                 ),
-            ]
+            ],
         ):
             """
             Set the color of the LEDs
@@ -161,7 +171,7 @@ class LightWave(FastAPI):
                     embed=True,
                     description="Brightness value in float range 0-100",
                 ),
-            ]
+            ],
         ):
             """
             Set the brightness of the LEDs

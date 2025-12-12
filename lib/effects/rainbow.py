@@ -1,13 +1,19 @@
 from lib.led import EffectBase
 
+
 class RainbowCycle(EffectBase):
     """
     Draw rainbow that uniformly distributes itself across all pixels on the strip.
     """
+
+    CONFIG_SCHEMA = [
+        {"name": "speed", "type": "float", "default": 1.0, "description": "Cycle speed"}
+    ]
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
         self.pos = 0
-        self.speed = float(self.config.get('speed', 1.0))
+        self.speed = float(self.config.get("speed", 1.0))
 
     def wheel(self, pos):
         pos = int(pos)
