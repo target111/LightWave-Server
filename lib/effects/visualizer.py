@@ -1,9 +1,10 @@
-from lib.led import EffectBase
-import socket
-import struct
+import colorsys
 import math
 import random
-import colorsys
+import socket
+import struct
+
+from lib.effects.base import EffectBase
 
 
 class MusicVisualizer(EffectBase):

@@ -1,5 +1,10 @@
-from lib.server import LightWave
-from lib.config import LED_COUNT, LED_PIN
-from lib.led import LED, EffectRegistry
+import logging
 
-app = LightWave(LED(LED_PIN, LED_COUNT), EffectRegistry())
+from lib.app import create_app
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+
+app = create_app()

@@ -1,6 +1,7 @@
-from lib.led import EffectBase
 import math
 import time
+
+from lib.effects.base import EffectBase
 
 
 class ChristmasBreath(EffectBase):

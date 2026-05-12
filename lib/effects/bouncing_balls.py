@@ -1,5 +1,6 @@
-from lib.led import EffectBase
 import time
+
+from lib.effects.base import EffectBase
 
 
 class BouncingBalls(EffectBase):

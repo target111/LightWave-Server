@@ -1,5 +1,6 @@
-from lib.led import EffectBase
 import math
+
+from lib.effects.base import EffectBase
 
 
 class Aurora(EffectBase):

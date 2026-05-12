@@ -1,0 +1,20 @@
+from typing import Protocol, Tuple
+
+Color = Tuple[int, int, int]
+
+
+class LEDDriver(Protocol):
+    """Minimal hardware contract. Implementations must be importable without
+    actually requiring the hardware to be present at import time."""
+
+    count: int
+
+    @property
+    def brightness(self) -> float: ...
+    @brightness.setter
+    def brightness(self, value: float) -> None: ...
+
+    def set_pixel(self, index: int, color: Color) -> None: ...
+    def fill(self, color: Color) -> None: ...
+    def show(self) -> None: ...
+    def close(self) -> None: ...

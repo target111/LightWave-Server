@@ -1,4 +1,4 @@
-from lib.led import EffectBase
+from lib.effects.base import EffectBase
 
 
 class CandyCane(EffectBase):

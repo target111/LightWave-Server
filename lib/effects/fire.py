@@ -1,5 +1,6 @@
-from lib.led import EffectBase
 import random
+
+from lib.effects.base import EffectBase
 
 
 class Fire(EffectBase):
