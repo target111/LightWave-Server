@@ -14,6 +14,8 @@
 
 ---
 
+## WARINING: README is outdated, I'll get around to updating eventually but you should use uv sync instead of requirements.txt
+
 ## 📍 Overview
 
 LightWave-Server is a robust, asynchronous Python-based server designed for controlling ws281x (NeoPixel) LED strips. Built with **FastAPI** and **Adafruit Blinka**, it provides a high-performance RESTful API to manage LED states, brightness, and dynamic lighting effects.
@@ -175,17 +177,6 @@ class MyCustomEffect(EffectBase):
         for i in range(self.led.count):
              self.led.set_pixel(i, self.color)
 ```
-
----
-
-## ✅ TODOs & Roadmap
-
-- [ ] **Web UI:** Develop a simple React/Vue frontend to control the server without using curl/Postman.
-- [ ] **Music Reactivity:** Integrate microphone input (FFT) to make effects react to music.
-- [ ] **Persisted Settings:** Save the last running state/config to disk so it resumes on reboot.
-- [ ] **Docker Support:** Containerize the application for easier deployment.
-- [ ] **Unit Tests:** Add tests for API endpoints and logic (mocking the hardware).
-- [ ] **Effect Previews:** Generate a preview (GIF/WebP) for effects in the UI.
 
 ---
 
