@@ -11,10 +11,11 @@ from lib.effects.base import EffectBase
 class MusicVisualizer(EffectBase):
     """
     Layered music visualizer driven by UDP FFT data.
-    Bass pulses ripple outward from the center, mids shift hue, treble
-    spawns sparkles, and beat hits trigger flashes and color changes.
-    Send packed little-endian float32 values (0.0-1.0) over UDP.
     """
+
+    # Bass pulses ripple outward from the center, mids shift hue, treble
+    # spawns sparkles, and beat hits trigger flashes and color changes.
+    # Send packed little-endian float32 values (0.0-1.0) over UDP.
 
     CONFIG_SCHEMA = [
         {
