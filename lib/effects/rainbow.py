@@ -32,8 +32,8 @@ class RainbowCycle(EffectBase):
             pos -= 170
             return (0, pos * 3, 255 - pos * 3)
 
-    def tick(self):
-        self.pos += self.speed
+    def tick(self, dt: float):
+        self.pos += self.speed * dt * self.TARGET_FPS
         if self.pos >= 256:
             self.pos -= 256
 

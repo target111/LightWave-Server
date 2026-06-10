@@ -47,7 +47,8 @@ class BouncingBalls(EffectBase):
             self.start_times[i] = now + (i * 0.5)
             self.velocities[i] = 0.0
 
-    def tick(self):
+    def tick(self, dt: float):
+        # Physics integrate against wall-clock time, so dt is unused
         now = time.time()
         self.led.clear()
 

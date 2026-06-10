@@ -34,7 +34,8 @@ class ChristmasBreath(EffectBase):
     color1: tuple[int, int, int]
     color2: tuple[int, int, int]
 
-    def tick(self):
+    def tick(self, dt: float):
+        # Phase derives from wall-clock time, so dt is unused
         elapsed = time.time() - self.start_time.timestamp()
         phase = (math.sin(elapsed * 2 * math.pi / self.period) + 1) / 2
 

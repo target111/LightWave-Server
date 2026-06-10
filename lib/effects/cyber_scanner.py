@@ -39,10 +39,13 @@ class CyberScanner(EffectBase):
         self.position = 0.0
         self.direction = 1
 
-    def tick(self):
+    def tick(self, dt: float):
+        frames = dt * self.TARGET_FPS
+
         # Fade out
+        decay = self.decay**frames
         for i in range(self.led.count):
-            self.heat[i] = self.heat[i] * self.decay
+            self.heat[i] = self.heat[i] * decay
 
         # Set head
         pos_idx = int(self.position)
@@ -57,7 +60,7 @@ class CyberScanner(EffectBase):
             self.led.set_pixel(i, (pixel_r, pixel_g, pixel_b))
 
         # Move
-        self.position += self.direction * self.speed
+        self.position += self.direction * self.speed * frames
 
         if self.position >= self.led.count - 1:
             self.position = self.led.count - 1

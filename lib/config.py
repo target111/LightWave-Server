@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from lib.drivers.base import LEDDriver
@@ -7,9 +7,15 @@ from lib.drivers.base import LEDDriver
 
 @dataclass(frozen=True)
 class Settings:
-    led_count: int = int(os.getenv("LED_COUNT", "300"))
-    led_pin: str = os.getenv("LED_PIN", "D18")
-    backend: Literal["neopixel", "mock"] = os.getenv("LED_BACKEND", "neopixel")  # type: ignore[assignment]
+    # default_factory so the env is read when Settings() is created,
+    # not once at import time
+    led_count: int = field(
+        default_factory=lambda: int(os.getenv("LED_COUNT", "300"))
+    )
+    led_pin: str = field(default_factory=lambda: os.getenv("LED_PIN", "D18"))
+    backend: Literal["neopixel", "mock"] = field(
+        default_factory=lambda: os.getenv("LED_BACKEND", "neopixel")  # type: ignore[assignment,return-value]
+    )
 
 
 def build_driver(settings: Settings) -> LEDDriver:

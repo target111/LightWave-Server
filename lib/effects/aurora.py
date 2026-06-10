@@ -23,8 +23,8 @@ class Aurora(EffectBase):
         super().__init__(led, **kwargs)
         self.t = 0.0
 
-    def tick(self):
-        self.t += self.speed
+    def tick(self, dt: float):
+        self.t += self.speed * dt * self.TARGET_FPS
 
         for i in range(self.led.count):
             wave1 = math.sin(i * 0.1 + self.t)

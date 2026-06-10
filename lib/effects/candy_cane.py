@@ -44,7 +44,7 @@ class CandyCane(EffectBase):
         super().__init__(led, **kwargs)
         self.offset = 0.0
 
-    def tick(self):
+    def tick(self, dt: float):
         current_offset = int(self.offset)
 
         for i in range(self.led.count):
@@ -53,7 +53,7 @@ class CandyCane(EffectBase):
             else:
                 self.led.set_pixel(i, self.color2)
 
-        self.offset += self.speed
+        self.offset += self.speed * dt * self.TARGET_FPS
 
         if self.offset >= (self.stripe_width * 2):
             self.offset -= self.stripe_width * 2

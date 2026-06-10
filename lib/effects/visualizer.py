@@ -111,8 +111,6 @@ class MusicVisualizer(EffectBase):
     ambient_brightness: float
     silence_timeout: float
 
-    _REF_FPS = 60.0
-
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
 
@@ -147,9 +145,7 @@ class MusicVisualizer(EffectBase):
         self.pixel_g = [0.0] * n
         self.pixel_b = [0.0] * n
 
-        # -- delta-time tracking --
-        self._last_time = time.monotonic()
-        self._last_packet_time = self._last_time
+        self._last_packet_time = time.monotonic()
         # Spawn rates were "one per frame" at 60 FPS; accumulate fractional
         # frames so slower/faster loops produce the same rate per second.
         self._pulse_spawn_accum = 0.0
@@ -329,14 +325,9 @@ class MusicVisualizer(EffectBase):
                 self.pixel_g[i] += self.flash_level
                 self.pixel_b[i] += self.flash_level
 
-    def tick(self):
+    def tick(self, dt: float):
         now = time.monotonic()
-        dt = now - self._last_time
-        self._last_time = now
-
-        # Clamp dt so a stall (e.g. GC pause) doesn't fast-forward the effect
-        dt = min(dt, 0.05)
-        frames = dt * self._REF_FPS
+        frames = dt * self.TARGET_FPS
 
         raw = self._drain_udp()
         if raw is not None:

@@ -49,9 +49,11 @@ class MatrixRain(EffectBase):
 
         self.drops = []
 
-    def tick(self):
+    def tick(self, dt: float):
+        frames = dt * self.TARGET_FPS
+
         # Spawn
-        if random.random() < self.spawn_rate:
+        if random.random() < self.spawn_rate * frames:
             speed = random.uniform(self.min_speed, self.max_speed)
             self.drops.append([0.0, speed])
 
@@ -60,7 +62,7 @@ class MatrixRain(EffectBase):
 
         for drop in self.drops:
             pos, speed = drop
-            pos += speed
+            pos += speed * frames
 
             head_pixel = int(pos)
 

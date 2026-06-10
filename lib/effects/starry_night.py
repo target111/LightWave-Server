@@ -39,7 +39,7 @@ class StarryNight(EffectBase):
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
         self.states = [self._OFF] * self.led.count
-        self.brightness = [0] * self.led.count
+        self.brightness = [0.0] * self.led.count
         self.pixel_colors: list[tuple[int, int, int]] = [
             (0, 0, 0)
         ] * self.led.count
@@ -48,23 +48,25 @@ class StarryNight(EffectBase):
         """Color for a newly spawned star. Subclasses can override."""
         return self.color
 
-    def tick(self):
+    def tick(self, dt: float):
+        frames = dt * self.TARGET_FPS
+
         for i in range(self.led.count):
             if self.states[i] == self._OFF:
                 # Density was tuned per-frame at 20 FPS; divide by 3 so the
                 # 60 FPS loop spawns at the same rate per second.
-                if random.random() < (self.density / 3.0):
+                if random.random() < (self.density / 3.0) * frames:
                     self.states[i] = self._FADE_IN
                     self.pixel_colors[i] = self._pick_color()
 
             elif self.states[i] == self._FADE_IN:
-                self.brightness[i] += self.speed
+                self.brightness[i] += self.speed * frames
                 if self.brightness[i] >= 255:
                     self.brightness[i] = 255
                     self.states[i] = self._FADE_OUT
 
             elif self.states[i] == self._FADE_OUT:
-                self.brightness[i] -= self.speed
+                self.brightness[i] -= self.speed * frames
                 if self.brightness[i] <= 0:
                     self.brightness[i] = 0
                     self.states[i] = self._OFF

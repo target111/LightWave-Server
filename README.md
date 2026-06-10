@@ -1,185 +1,115 @@
-<div align="center">
-<h1 align="center">
-<img src="./.github/logo.svg" width="200" height="200" />
-<br>LightWave-Server
-</h1>
-<h3>◦ LightWave: A High-Performance HTTP API for Addressable LEDs</h3>
+# LightWave-Server
 
-<p align="center">
-<img src="https://img.shields.io/badge/Python-3.11+-3776AB.svg?style&logo=Python&logoColor=white" alt="Python" />
-<img src="https://img.shields.io/badge/FastAPI-0.100+-009688.svg?style&logo=FastAPI&logoColor=white" alt="FastAPI" />
-<img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
-</p>
-</div>
+HTTP API for controlling ws281x (NeoPixel) LED strips, built with FastAPI.
+Runs on a Raspberry Pi; a mock backend allows development on any machine.
 
----
+## Setup
 
-## WARINING: README is outdated, I'll get around to updating eventually but you should use uv sync instead of requirements.txt
+Requires Python 3.14+ and [uv](https://docs.astral.sh/uv/).
 
-## 📍 Overview
-
-LightWave-Server is a robust, asynchronous Python-based server designed for controlling ws281x (NeoPixel) LED strips. Built with **FastAPI** and **Adafruit Blinka**, it provides a high-performance RESTful API to manage LED states, brightness, and dynamic lighting effects.
-
-The core features include a thread-safe LED controller, a plugin-based effect system with FPS normalization, and graceful transition management.
-
----
-
-## ⚙️ Features
-
-*   **RESTful API:** Control your LEDs via simple HTTP endpoints.
-*   **Thread-Safe:** Robust locking mechanisms ensure safe hardware access from multiple requests.
-*   **Plugin System:** Easily extendable effects library. Just drop a new effect class in `lib/effects/`.
-*   **FPS Normalization:** Effects run at a consistent 60 FPS across different hardware.
-*   **Graceful Transitions:** Smooth fade-out animations when stopping effects or shutting down.
-*   **Parameterized Effects:** Configure effect speed, colors, and other parameters dynamically via the API.
-*   **Hardware Support:** Designed for Raspberry Pi (using GPIO) but includes mock support for development.
-
----
-
-## 🚀 Getting Started
-
-### Hardware Requirements
-
-*   **Raspberry Pi** (Zero, 3, 4, or 5 recommended)
-*   **WS281x LED Strip** (NeoPixel)
-*   **Power Supply** (Adequate for your specific LED count)
-*   **Level Shifter** (Recommended: 3.3V to 5V for data line)
-
-### 📦 Installation
-
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/target111/LightWave-Server.git
-    cd LightWave-Server
-    ```
-
-2.  **Set up a Virtual Environment (Recommended):**
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
-
-3.  **Install Dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-### 🔧 Configuration
-
-LightWave-Server uses environment variables for configuration. You can set these in your shell or a `.env` file (if you add `python-dotenv` support, otherwise export them).
-
-| Variable    | Default | Description                                      |
-| :---------- | :------ | :----------------------------------------------- |
-| `LED_COUNT` | `300`   | The number of LEDs in your strip.                |
-| `LED_PIN`   | `D18`   | The GPIO pin connected to the Data In line.      |
-
-**Example:**
 ```bash
-export LED_COUNT=150
-export LED_PIN=D18
+uv sync               # server only
+uv sync --extra pi    # on the Pi (adds blinka/neopixel)
+uv sync --extra dev   # tests, lint, type checking
 ```
 
-### 🎮 Running the Server
+## Configuration
 
-Start the server using `uvicorn`:
+Set via environment variables:
+
+| Variable      | Default    | Description                              |
+| ------------- | ---------- | ---------------------------------------- |
+| `LED_COUNT`   | `300`      | Number of LEDs on the strip              |
+| `LED_PIN`     | `D18`      | GPIO pin connected to the data line      |
+| `LED_BACKEND` | `neopixel` | `neopixel` (hardware) or `mock` (dev)    |
+
+## Running
 
 ```bash
-# For development (with auto-reload)
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-# For production
-uvicorn main:app --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Once running, you can access the **Interactive API Documentation** at:
-`http://<your-pi-ip>:8000/docs`
+Interactive API docs: `http://<host>:8000/docs`
 
----
+## API
 
-## 🔌 API Usage Examples
+| Method | Path                    | Description                            |
+| ------ | ----------------------- | -------------------------------------- |
+| GET    | `/presets`              | List available effects                 |
+| GET    | `/presets/running`      | Currently running effect               |
+| GET    | `/presets/{name}`       | Effect description and options         |
+| POST   | `/presets/start`        | Start an effect                        |
+| POST   | `/presets/stop`         | Stop the running effect (fades out)    |
+| POST   | `/leds/color/set`       | Set a static color                     |
+| POST   | `/leds/color/brightness`| Set global brightness (0.0–1.0)        |
+| POST   | `/leds/color/clear`     | Turn all LEDs off                      |
 
-**1. List all available presets:**
 ```bash
-curl -X GET http://localhost:8000/presets
-```
-
-**2. Start the 'MatrixRain' effect:**
-```bash
-curl -X POST http://localhost:8000/presets/start \
-  -H "Content-Type: application/json" \
-  -d '{"preset_name": "MatrixRain"}'
-```
-
-**3. Start 'RainbowCycle' with custom speed:**
-```bash
+# Start an effect with custom options
 curl -X POST http://localhost:8000/presets/start \
   -H "Content-Type: application/json" \
   -d '{"preset_name": "RainbowCycle", "args": {"speed": 2.5}}'
-```
 
-**4. Set a static color (Red):**
-```bash
+# Set a static color
 curl -X POST http://localhost:8000/leds/color/set \
   -H "Content-Type: application/json" \
   -d '{"color": "#FF0000"}'
 ```
 
-**5. Stop current effect (fades out):**
-```bash
-curl -X POST http://localhost:8000/presets/stop
-```
+## Music visualizer
 
----
+The `MusicVisualizer` effect listens for FFT data over UDP (default port
+5555): one packet per frame containing little-endian float32 bins in the
+0.0–1.0 range. When packets stop arriving it fades back to an ambient wave.
 
-## 🛠 Development Guide
+`music_client.py` is an early standalone client that captures system audio
+via PipeWire/PulseAudio and streams the FFT (requires `numpy`). The
+`ambilight*.py` scripts are early clients as well; a Rust client is in
+development to replace them. None of their dependencies are part of the
+server install.
 
-### Project Structure
+## Writing an effect
 
-```
-LightWave-Server/
-├── lib/
-│   ├── effects/          # Effect plugins
-│   │   ├── __init__.py
-│   │   ├── aurora.py
-│   │   └── ...
-│   ├── config.py         # Configuration loader
-│   ├── led.py            # Core LED controller & EffectBase
-│   └── server.py         # FastAPI application routes
-├── main.py               # Entry point
-├── requirements.txt
-└── README.md
-```
-
-### Creating a New Effect
-
-1.  Create a new file in `lib/effects/`, e.g., `my_effect.py`.
-2.  Inherit from `EffectBase` and implement `tick()`.
-3.  Use `self.led.set_pixel(i, (r, g, b))` to draw.
-4.  Use `self.config` to access arguments passed from the API.
-
-**Example Template:**
+Drop a class into `lib/effects/` — it is discovered automatically. Options
+declared in `CONFIG_SCHEMA` are validated, coerced, and set as attributes.
 
 ```python
-from lib.led import EffectBase
+from lib.effects.base import EffectBase
 
-class MyCustomEffect(EffectBase):
-    """
-    A description of your effect (shows up in API).
-    """
+
+class Blink(EffectBase):
+    """Shows up as the effect description in the API."""
+
+    CONFIG_SCHEMA = [
+        {
+            "name": "color",
+            "type": "color",  # int | float | color
+            "default": (255, 0, 0),
+            "description": "Blink color",
+        },
+    ]
+
+    color: tuple[int, int, int]
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-        # Initialize state here
-        self.color = self.config.get('color', (255, 0, 0))
+        self.elapsed = 0.0
 
-    def tick(self):
-        # This runs at 60 FPS
-        # Update your animation state here
-        for i in range(self.led.count):
-             self.led.set_pixel(i, self.color)
+    def tick(self, dt: float):
+        # Called in a 60 FPS loop; dt is the elapsed time in seconds.
+        self.elapsed += dt
+        on = int(self.elapsed) % 2 == 0
+        self.led.set_color(self.color if on else (0, 0, 0))
 ```
 
----
+## Development
 
-## 📄 License
+```bash
+uv run pytest                 # tests (uses the mock backend)
+uv run ruff check lib tests   # lint
+uv run pyright lib tests      # type check
+```
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+## License
+
+MIT — see [LICENSE](LICENSE).

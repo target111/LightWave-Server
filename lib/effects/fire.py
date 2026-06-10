@@ -44,8 +44,8 @@ class Fire(EffectBase):
         self.accum = 0.0
         self.update_interval = 0.03
 
-    def tick(self):
-        self.accum += 1.0 / self.TARGET_FPS
+    def tick(self, dt: float):
+        self.accum += dt
         if self.accum < self.update_interval:
             return
 

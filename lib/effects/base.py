@@ -77,10 +77,15 @@ class EffectBase(abc.ABC, threading.Thread):
 
     def run(self) -> None:
         frame_time = 1.0 / self.TARGET_FPS
+        last = time.perf_counter()
         try:
             while not self._stopped.is_set():
                 loop_start = time.perf_counter()
-                self.tick()
+                # Clamp dt so a stall (GC pause, loaded CPU) doesn't
+                # fast-forward the animation.
+                dt = min(loop_start - last, 3 * frame_time)
+                last = loop_start
+                self.tick(dt)
                 self.led.show()
                 wait = frame_time - (time.perf_counter() - loop_start)
                 if wait > 0 and self._stopped.wait(wait):
@@ -94,7 +99,10 @@ class EffectBase(abc.ABC, threading.Thread):
                 logger.exception("Teardown of %s failed", self.name)
 
     @abc.abstractmethod
-    def tick(self) -> None: ...
+    def tick(self, dt: float) -> None:
+        """Advance the animation by `dt` seconds and draw one frame.
+        Per-frame tuning constants assume TARGET_FPS, so effects scale
+        them with `frames = dt * self.TARGET_FPS`."""
 
     def teardown(self) -> None: ...
 

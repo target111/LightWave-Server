@@ -49,8 +49,8 @@ class SnowSparkle(EffectBase):
 
         self.led.set_color(self.bg_color)
 
-    def tick(self):
-        self.timer += 1.0 / self.TARGET_FPS
+    def tick(self, dt: float):
+        self.timer += dt
 
         if self.state == 0:  # Waiting to sparkle
             if self.timer >= self.next_event_time:

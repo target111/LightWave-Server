@@ -44,7 +44,7 @@ def test_every_registered_effect_constructs_and_ticks(led):
         effect = registry.get(name)(led, port=0)
         try:
             for _ in range(3):
-                effect.tick()
+                effect.tick(1 / 60)
         finally:
             effect.teardown()
 
@@ -64,6 +64,17 @@ def test_schema_defaults_match_resolved_config(led):
             effect.teardown()
 
 
+def test_animation_speed_is_frame_rate_independent(led):
+    """One simulated second advances the same amount at 30 and 120 FPS."""
+    slow = CandyCane(led)
+    fast = CandyCane(led)
+    for _ in range(30):
+        slow.tick(1 / 30)
+    for _ in range(120):
+        fast.tick(1 / 120)
+    assert slow.offset == pytest.approx(fast.offset)
+
+
 def test_option_clashing_with_thread_attribute_is_rejected(led):
     class BadEffect(EffectBase):
         CONFIG_SCHEMA = [
@@ -75,7 +86,7 @@ def test_option_clashing_with_thread_attribute_is_rejected(led):
             }
         ]
 
-        def tick(self):
+        def tick(self, dt):
             pass
 
     with pytest.raises(ValueError, match="clashes"):
