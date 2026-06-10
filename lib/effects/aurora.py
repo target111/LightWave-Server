@@ -17,10 +17,11 @@ class Aurora(EffectBase):
         }
     ]
 
+    speed: float
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
         self.t = 0.0
-        self.speed = float(self.config.get("speed", 0.04))  # Adjusted for 60 FPS
 
     def tick(self):
         self.t += self.speed

@@ -3,17 +3,17 @@ from lib.effects.base import EffectBase
 
 class CandyCane(EffectBase):
     """
-
     Rotating Red and White stripes resembling a candy cane.
-
     """
 
     CONFIG_SCHEMA = [
         {
             "name": "speed",
             "type": "float",
+            # Original speed was 1 px/frame at 20 FPS (20 px/sec);
+            # at 60 FPS that is 0.33 px/frame.
             "default": 0.33,
-            "description": "Rotation speed",
+            "description": "Rotation speed (pixels per frame)",
         },
         {
             "name": "stripe_width",
@@ -35,22 +35,14 @@ class CandyCane(EffectBase):
         },
     ]
 
+    speed: float
+    stripe_width: int
+    color1: tuple[int, int, int]
+    color2: tuple[int, int, int]
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-
         self.offset = 0.0
-
-        self.stripe_width = int(self.config.get("stripe_width", 5))
-
-        # Original speed 0.05 (20 FPS). Moves 1 pixel per frame. 20 px/sec.
-
-        # New 60 FPS. Need 20 px/sec => 0.33 px/frame.
-
-        self.speed = float(self.config.get("speed", 0.33))
-
-        self.color1 = self.config.get("color1", (255, 0, 0))
-
-        self.color2 = self.config.get("color2", (255, 255, 255))
 
     def tick(self):
         current_offset = int(self.offset)
@@ -58,7 +50,6 @@ class CandyCane(EffectBase):
         for i in range(self.led.count):
             if ((i + current_offset) // self.stripe_width) % 2 == 0:
                 self.led.set_pixel(i, self.color1)
-
             else:
                 self.led.set_pixel(i, self.color2)
 

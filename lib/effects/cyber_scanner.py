@@ -22,19 +22,19 @@ class CyberScanner(EffectBase):
         {
             "name": "speed",
             "type": "float",
+            # Original speed was 1 px/frame at 33 FPS (33 px/sec);
+            # at 60 FPS that is 0.55 px/frame.
             "default": 0.55,
             "description": "Movement speed (pixels per frame)",
         },
     ]
 
+    eye_color: tuple[int, int, int]
+    decay: float
+    speed: float
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-        self.eye_color = self.config.get("eye_color", (255, 0, 255))
-        self.decay = float(self.config.get("decay", 0.97))
-        # Original speed 0.03 (33 FPS). 1 pixel/frame. 33 px/sec.
-        # 60 FPS. 33 px/sec => 0.55 px/frame.
-        self.speed = float(self.config.get("speed", 0.55))
-
         self.heat = [0.0] * self.led.count
         self.position = 0.0
         self.direction = 1

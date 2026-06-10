@@ -40,13 +40,17 @@ class MusicVisualizer(EffectBase):
             "name": "beat_threshold",
             "type": "float",
             "default": 1.4,
-            "description": "Beat detection threshold (ratio of current to average energy)",
+            "description": (
+                "Beat detection threshold (current vs average energy)"
+            ),
         },
         {
             "name": "pulse_speed",
             "type": "float",
             "default": 2.0,
-            "description": "Speed of bass ripple pulses (pixels per frame at 60 FPS)",
+            "description": (
+                "Speed of bass ripple pulses (pixels per frame at 60 FPS)"
+            ),
         },
         {
             "name": "sparkle_decay",
@@ -58,7 +62,9 @@ class MusicVisualizer(EffectBase):
             "name": "flash_decay",
             "type": "float",
             "default": 0.4,
-            "description": "Beat flash fade speed (0.0 = 1 frame, 0.9 = slow fade)",
+            "description": (
+                "Beat flash fade speed (0.0 = 1 frame, 0.9 = slow fade)"
+            ),
         },
         {
             "name": "pulse_intensity",
@@ -84,24 +90,31 @@ class MusicVisualizer(EffectBase):
             "default": 0.05,
             "description": "Minimum brightness of the background wave",
         },
+        {
+            "name": "silence_timeout",
+            "type": "float",
+            "default": 0.5,
+            "description": "Seconds without UDP data before fading to ambient",
+        },
     ]
+
+    port: int
+    smoothing: float
+    sensitivity: float
+    beat_threshold: float
+    pulse_speed: float
+    sparkle_decay: float
+    flash_decay: float
+    pulse_intensity: float
+    beat_multiplier: float
+    pulse_width: float
+    ambient_brightness: float
+    silence_timeout: float
 
     _REF_FPS = 60.0
 
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-
-        self.port = int(self.config.get("port", 5555))
-        self.smoothing = float(self.config.get("smoothing", 0.4))
-        self.sensitivity = float(self.config.get("sensitivity", 2.5))
-        self.beat_threshold = float(self.config.get("beat_threshold", 1.4))
-        self.pulse_speed = float(self.config.get("pulse_speed", 2.0))
-        self.sparkle_decay = float(self.config.get("sparkle_decay", 0.88))
-        self.flash_decay = float(self.config.get("flash_decay", 0.4))
-        self.pulse_intensity = float(self.config.get("pulse_intensity", 1.5))
-        self.beat_multiplier = float(self.config.get("beat_multiplier", 1.5))
-        self.pulse_width = float(self.config.get("pulse_width", 3.0))
-        self.ambient_brightness = float(self.config.get("ambient_brightness", 0.05))
 
         n = self.led.count
 
@@ -136,6 +149,7 @@ class MusicVisualizer(EffectBase):
 
         # -- delta-time tracking --
         self._last_time = time.monotonic()
+        self._last_packet_time = self._last_time
         # Spawn rates were "one per frame" at 60 FPS; accumulate fractional
         # frames so slower/faster loops produce the same rate per second.
         self._pulse_spawn_accum = 0.0
@@ -158,9 +172,8 @@ class MusicVisualizer(EffectBase):
         if latest_data:
             num_floats = len(latest_data) // 4
             if num_floats > 0:
-                return list(
-                    struct.unpack(f"<{num_floats}f", latest_data[: num_floats * 4])
-                )
+                payload = latest_data[: num_floats * 4]
+                return list(struct.unpack(f"<{num_floats}f", payload))
         return None
 
     def _update_bins(self, raw: list[float]):
@@ -327,7 +340,13 @@ class MusicVisualizer(EffectBase):
 
         raw = self._drain_udp()
         if raw is not None:
+            self._last_packet_time = now
             self._update_bins(raw)
+        elif now - self._last_packet_time > self.silence_timeout:
+            # The sender stopped (or died mid-stream). Without this the bins
+            # freeze at their last values and the effect keeps replaying the
+            # final frame; feed silence so it decays back to the ambient wave.
+            self._update_bins([0.0] * len(self._bins))
         self._extract_bands()
 
         beat = self._detect_beat(frames)

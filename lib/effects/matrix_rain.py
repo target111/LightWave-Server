@@ -35,24 +35,25 @@ class MatrixRain(EffectBase):
         },
     ]
 
+    spawn_rate: float
+    trail_length: int
+    head_color: tuple[int, int, int]
+    tail_color: tuple[int, int, int]
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-        # Adjust spawn rate for 60 FPS (was 50 FPS)
-        base_spawn_rate = float(self.config.get("spawn_rate", 0.05))
-        self.spawn_rate = base_spawn_rate * (50 / 60)
-        self.min_speed = 0.2 * (50 / 60)  # Scale speed per frame
+        # Rates were tuned at 50 FPS; rescale for the 60 FPS loop.
+        self.spawn_rate *= 50 / 60
+        self.min_speed = 0.2 * (50 / 60)
         self.max_speed = 0.8 * (50 / 60)
-        self.trail_length = int(self.config.get("trail_length", 20))
-
-        self.head_color = self.config.get("head_color", (180, 255, 180))
-        self.tail_color = self.config.get("tail_color", (0, 255, 0))
 
         self.drops = []
 
     def tick(self):
         # Spawn
         if random.random() < self.spawn_rate:
-            self.drops.append([0.0, random.uniform(self.min_speed, self.max_speed)])
+            speed = random.uniform(self.min_speed, self.max_speed)
+            self.drops.append([0.0, speed])
 
         pixel_buffer = {}
         active_drops = []
@@ -78,14 +79,10 @@ class MatrixRain(EffectBase):
         for i in range(self.led.count):
             if i in pixel_buffer:
                 intensity = pixel_buffer[i]
-                if intensity > 0.9:
-                    r = int(self.head_color[0] * intensity)
-                    g = int(self.head_color[1] * intensity)
-                    b = int(self.head_color[2] * intensity)
-                else:
-                    r = int(self.tail_color[0] * intensity)
-                    g = int(self.tail_color[1] * intensity)
-                    b = int(self.tail_color[2] * intensity)
+                color = self.head_color if intensity > 0.9 else self.tail_color
+                r = int(color[0] * intensity)
+                g = int(color[1] * intensity)
+                b = int(color[2] * intensity)
                 self.led.set_pixel(i, (r, g, b))
             else:
                 self.led.set_pixel(i, (0, 0, 0))

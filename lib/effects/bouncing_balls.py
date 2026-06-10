@@ -29,22 +29,21 @@ class BouncingBalls(EffectBase):
         },
     ]
 
+    ball_count: int
+    gravity: float
+    dampening: float
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-        # Physics Constants
-        self.gravity = float(self.config.get("gravity", -5.81))
         self.start_height = 1
-        self.dampening = float(self.config.get("dampening", 0.90))
-
-        self.num_balls = int(self.config.get("ball_count", 3))
         self.colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 
-        self.start_times = [0.0] * self.num_balls
-        self.velocities = [0.0] * self.num_balls
-        self.heights = [self.start_height] * self.num_balls
+        self.start_times = [0.0] * self.ball_count
+        self.velocities = [0.0] * self.ball_count
+        self.heights = [self.start_height] * self.ball_count
 
         now = time.time()
-        for i in range(self.num_balls):
+        for i in range(self.ball_count):
             self.start_times[i] = now + (i * 0.5)
             self.velocities[i] = 0.0
 
@@ -52,7 +51,7 @@ class BouncingBalls(EffectBase):
         now = time.time()
         self.led.clear()
 
-        for i in range(self.num_balls):
+        for i in range(self.ball_count):
             t = now - self.start_times[i]
             if t < 0:
                 continue

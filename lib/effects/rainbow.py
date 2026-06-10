@@ -3,17 +3,23 @@ from lib.effects.base import EffectBase
 
 class RainbowCycle(EffectBase):
     """
-    Draw rainbow that uniformly distributes itself across all pixels on the strip.
+    Draw rainbow that uniformly distributes itself across all pixels.
     """
 
     CONFIG_SCHEMA = [
-        {"name": "speed", "type": "float", "default": 1.0, "description": "Cycle speed"}
+        {
+            "name": "speed",
+            "type": "float",
+            "default": 1.0,
+            "description": "Cycle speed",
+        }
     ]
+
+    speed: float
 
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-        self.pos = 0
-        self.speed = float(self.config.get("speed", 1.0))
+        self.pos = 0.0
 
     def wheel(self, pos):
         pos = int(pos)
@@ -27,7 +33,6 @@ class RainbowCycle(EffectBase):
             return (0, pos * 3, 255 - pos * 3)
 
     def tick(self):
-        # Increment position
         self.pos += self.speed
         if self.pos >= 256:
             self.pos -= 256

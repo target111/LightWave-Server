@@ -5,7 +5,7 @@ from lib.effects.base import EffectBase
 
 class SnowSparkle(EffectBase):
     """
-    background with random white sparkles popping in and out.
+    Background with random white sparkles popping in and out.
     """
 
     CONFIG_SCHEMA = [
@@ -35,13 +35,13 @@ class SnowSparkle(EffectBase):
         },
     ]
 
+    bg_color: tuple[int, int, int]
+    sparkle_color: tuple[int, int, int]
+    duration: float
+    interval: float
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-        self.bg_color = self.config.get("bg_color", (64, 160, 43))
-        self.sparkle_color = self.config.get("sparkle_color", (255, 255, 255))
-        self.sparkle_delay = float(self.config.get("duration", 0.05))
-        self.frequency_delay = float(self.config.get("interval", 0.05))
-
         self.state = 0  # 0 = Wait for sparkle, 1 = Sparkle active
         self.timer = 0.0
         self.next_event_time = 0.0
@@ -50,7 +50,7 @@ class SnowSparkle(EffectBase):
         self.led.set_color(self.bg_color)
 
     def tick(self):
-        self.timer += 1.0 / 60.0  # Approx dt
+        self.timer += 1.0 / self.TARGET_FPS
 
         if self.state == 0:  # Waiting to sparkle
             if self.timer >= self.next_event_time:
@@ -60,7 +60,7 @@ class SnowSparkle(EffectBase):
 
                 self.state = 1
                 self.timer = 0.0
-                self.next_event_time = self.sparkle_delay
+                self.next_event_time = self.duration
 
         elif self.state == 1:  # Sparkle is on
             if self.timer >= self.next_event_time:
@@ -70,4 +70,4 @@ class SnowSparkle(EffectBase):
 
                 self.state = 0
                 self.timer = 0.0
-                self.next_event_time = random.uniform(0.02, self.frequency_delay * 2)
+                self.next_event_time = random.uniform(0.02, self.interval * 2)

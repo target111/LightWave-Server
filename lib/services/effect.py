@@ -14,7 +14,7 @@ class NoEffectRunningError(Exception):
 
 
 class EffectStartError(Exception):
-    """Raised when an effect fails to construct (bad args, port in use, etc.)."""
+    """Raised when an effect fails to construct (bad args, busy port...)."""
 
 
 class EffectService:

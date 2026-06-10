@@ -25,6 +25,10 @@ dev = [
     "ruff>=0.15.12",
 ]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
 [tool.basedpyright]
 typeCheckingMode = "basic"
 pythonVersion = "3.14"

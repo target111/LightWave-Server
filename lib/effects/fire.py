@@ -23,10 +23,11 @@ class Fire(EffectBase):
         },
     ]
 
+    cooling: int
+    sparking: int
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-        self.cooling = int(self.config.get("cooling", 55))
-        self.sparking = int(self.config.get("sparking", 120))
         self.heat = [0] * self.led.count
 
         self.palette = []
@@ -38,31 +39,29 @@ class Fire(EffectBase):
             else:
                 self.palette.append((255, 255, (i - 170) * 3))
 
-        # To maintain original speed (~30 FPS) on 60 FPS loop
+        # The simulation was tuned at ~30 FPS and is step-sensitive, so on
+        # the 60 FPS loop we skip frames instead of scaling the math.
         self.accum = 0.0
         self.update_interval = 0.03
 
     def tick(self):
-        # We can either skip frames or scale logic.
-        # Fire simulation is sensitive to steps. Skipping frames is safer for look.
-        self.accum += 1.0 / 60.0  # Assuming 60 FPS from EffectBase
+        self.accum += 1.0 / self.TARGET_FPS
         if self.accum < self.update_interval:
-            # Just redraw existing heat? Or do nothing?
-            # EffectBase calls show(). If we do nothing, it shows same frame.
-            # But we need to render heat to pixels every frame if we want smooth?
-            # No, if heat doesn't change, pixels don't change.
             return
 
         self.accum -= self.update_interval
 
         # Step 1: Cool down
+        max_cooldown = ((self.cooling * 10) // self.led.count) + 2
         for i in range(self.led.count):
-            cooldown = random.randint(0, ((self.cooling * 10) // self.led.count) + 2)
+            cooldown = random.randint(0, max_cooldown)
             self.heat[i] = max(0, self.heat[i] - cooldown)
 
         # Step 2: Drift
         for i in range(self.led.count - 1, 1, -1):
-            self.heat[i] = (self.heat[i - 1] + self.heat[i - 2] + self.heat[i - 2]) // 3
+            self.heat[i] = (
+                self.heat[i - 1] + self.heat[i - 2] + self.heat[i - 2]
+            ) // 3
 
         # Step 3: Spark
         if random.randint(0, 255) < self.sparking:
@@ -71,7 +70,5 @@ class Fire(EffectBase):
 
         # Step 4: Map to color
         for i in range(self.led.count):
-            color_index = self.heat[i]
-            if color_index >= 256:
-                color_index = 255
+            color_index = min(self.heat[i], 255)
             self.led.set_pixel(i, self.palette[color_index])
