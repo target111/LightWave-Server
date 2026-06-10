@@ -23,6 +23,9 @@ class NeoPixelDriver:
     def set_pixel(self, index: int, color: Color) -> None:
         self._pixels[index] = color
 
+    def set_pixels(self, colors: list[Color]) -> None:
+        self._pixels[:] = colors
+
     def fill(self, color: Color) -> None:
         self._pixels.fill(color)
 

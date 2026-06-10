@@ -23,6 +23,11 @@ class LEDController:
         with self._lock:
             self._driver.set_pixel(index, color)
 
+    def set_pixels(self, colors: list[Color]) -> None:
+        """Replace the whole frame in one lock acquisition."""
+        with self._lock:
+            self._driver.set_pixels(colors)
+
     def set_color(self, color: Color) -> None:
         with self._lock:
             self._driver.fill(color)

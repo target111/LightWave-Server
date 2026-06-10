@@ -16,6 +16,11 @@ class MockDriver:
     def set_pixel(self, index: int, color: Color) -> None:
         self._pixels[index] = color
 
+    def set_pixels(self, colors: list[Color]) -> None:
+        if len(colors) != self.count:
+            raise ValueError(f"expected {self.count} colors, got {len(colors)}")
+        self._pixels = list(colors)
+
     def fill(self, color: Color) -> None:
         self._pixels = [color] * self.count
 
