@@ -1,4 +1,9 @@
+<div align="center">
+<img src="./.github/logo.svg" width="200" height="200" alt="LightWave logo" />
+
 # LightWave-Server
+
+</div>
 
 HTTP API for controlling ws281x (NeoPixel) LED strips, built with FastAPI.
 Runs on a Raspberry Pi; a mock backend allows development on any machine.
