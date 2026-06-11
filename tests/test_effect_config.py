@@ -33,12 +33,11 @@ def test_unknown_option_warns_but_works(led, caplog):
     assert "nonsense" in caplog.text
 
 
-# Effects that bind OS resources in __init__; port=0 picks a free port
-# instead of the real one.
-EXTRA_ARGS = {
-    "MusicVisualizer": {"port": 0},
-    "Ambilight": {"port": 0},
-}
+def _test_overrides(cls) -> dict:
+    """Effects with a `port` option bind a UDP socket in __init__;
+    port=0 picks a free port instead of the real one."""
+    has_port = any(spec["name"] == "port" for spec in cls.CONFIG_SCHEMA)
+    return {"port": 0} if has_port else {}
 
 
 def test_every_registered_effect_constructs_and_ticks(led):
@@ -47,7 +46,8 @@ def test_every_registered_effect_constructs_and_ticks(led):
     assert len(names) >= 12
 
     for name in names:
-        effect = registry.get(name)(led, **EXTRA_ARGS.get(name, {}))
+        cls = registry.get(name)
+        effect = cls(led, **_test_overrides(cls))
         try:
             for _ in range(3):
                 effect.tick(1 / 60)
@@ -60,7 +60,7 @@ def test_schema_defaults_match_resolved_config(led):
     registry = EffectRegistry()
     for name in registry.names():
         cls = registry.get(name)
-        effect = cls(led, **EXTRA_ARGS.get(name, {}))
+        effect = cls(led, **_test_overrides(cls))
         try:
             for spec in cls.CONFIG_SCHEMA:
                 assert hasattr(effect, spec["name"]), (

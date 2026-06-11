@@ -1,6 +1,7 @@
 import colorsys
 import math
 import random
+from collections.abc import Sequence
 
 from lib.effects.base import EffectBase, fade_factor, to_rgb255
 from lib.effects.udp import UdpFloatListener
@@ -156,7 +157,7 @@ class MusicVisualizer(EffectBase):
 
         self._udp = UdpFloatListener(self.port)
 
-    def _update_bins(self, raw):
+    def _update_bins(self, raw: Sequence[float]):
         if len(self._bins) != len(raw):
             self._bins = [0.0] * len(raw)
 
@@ -174,9 +175,10 @@ class MusicVisualizer(EffectBase):
         bass_end = max(1, n // 4)
         mid_end = max(bass_end + 1, int(n * 0.65))
 
+        # Tiny packets (n < 3) leave the upper band slices empty
         self.bass = max(self._bins[:bass_end])
-        self.mids = max(self._bins[bass_end:mid_end])
-        self.treble = max(self._bins[mid_end:])
+        self.mids = max(self._bins[bass_end:mid_end], default=0.0)
+        self.treble = max(self._bins[mid_end:], default=0.0)
         self.energy = sum(self._bins) / n
 
     def _detect_beat(self, dt: float) -> bool:

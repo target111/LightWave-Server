@@ -1,5 +1,6 @@
 import math
 import random
+from collections.abc import Sequence
 
 from lib.effects.base import EffectBase, fade_factor, to_rgb255
 from lib.effects.udp import UdpFloatListener
@@ -128,7 +129,7 @@ class Ambilight(EffectBase):
         self._udp = UdpFloatListener(self.port)
 
     @staticmethod
-    def _parse_boxes(raw) -> list[Rgb]:
+    def _parse_boxes(raw: Sequence[float]) -> list[Rgb]:
         """Convert flat float list into (R, G, B) tuples, clamped 0-1."""
         return [
             (
@@ -139,15 +140,14 @@ class Ambilight(EffectBase):
             for i in range(0, len(raw) - 2, 3)
         ]
 
-    def _smooth_boxes(self, new_boxes: list[Rgb]):
+    def _smooth_boxes(self, new_boxes: list[Rgb]) -> float:
         """Exponential moving average on box colors for smooth transitions.
-        Also measures how far the smoothed colors moved, feeding the
-        scene-activity signal."""
+        Returns how far the smoothed colors moved (the raw scene-activity
+        signal, 0-1)."""
         # Handle box count changes (e.g. capture app reconfigured)
         if len(new_boxes) != len(self.box_colors):
             self.box_colors = list(new_boxes)
-            self._raw_activity = 0.0
-            return
+            return 0.0
 
         a = self.smoothing
         total_delta = 0.0
@@ -166,9 +166,7 @@ class Ambilight(EffectBase):
             smoothed.append(color)
 
         self.box_colors = smoothed
-        self._raw_activity = min(
-            1.0, total_delta / len(new_boxes) * self._ACTIVITY_GAIN
-        )
+        return min(1.0, total_delta / len(new_boxes) * self._ACTIVITY_GAIN)
 
     def _update_scene_activity(self, frames: float):
         """Track how much the colors change between frames
@@ -181,6 +179,9 @@ class Ambilight(EffectBase):
         self.scene_activity = (
             smooth * self.scene_activity + (1.0 - smooth) * self._raw_activity
         )
+        # The raw signal refreshes only when packets arrive; decay it so a
+        # stopped sender reads as calm instead of holding its last delta.
+        self._raw_activity *= self._ACTIVITY_IDLE_DECAY**frames
 
     def _sample_color(self, pos: float) -> Rgb:
         """
@@ -247,7 +248,7 @@ class Ambilight(EffectBase):
         if raw:
             new_boxes = self._parse_boxes(raw)
             if new_boxes:
-                self._smooth_boxes(new_boxes)
+                self._raw_activity = self._smooth_boxes(new_boxes)
 
         self._update_scene_activity(dt * self.TARGET_FPS)
         self.drift_t += self.drift_speed * dt
@@ -263,8 +264,8 @@ class Ambilight(EffectBase):
 
         n = self.led.count
         span = max(n - 1, 1)
-        drift_phase = self.drift_t * 2.0 * math.pi
         drifting = self.drift_amount > 0
+        drift_phase = self.drift_t * 2.0 * math.pi if drifting else 0.0
         bright = self.brightness
 
         buffer = []

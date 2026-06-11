@@ -73,7 +73,7 @@ class EffectBase(abc.ABC, threading.Thread):
         self.config = self._resolve_config(kwargs)
         for key, value in self.config.items():
             setattr(self, key, value)
-            
+
         self._stopped = threading.Event()
         self.start_time = datetime.datetime.now()
 
@@ -126,7 +126,7 @@ class EffectBase(abc.ABC, threading.Thread):
                 self.led.show()
                 wait = frame_time - (time.perf_counter() - loop_start)
                 if wait > 0 and self._stopped.wait(wait):
-                    break 
+                    break
         except Exception:
             logger.exception("Effect %s crashed", self.name)
         finally:
