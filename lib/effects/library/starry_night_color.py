@@ -1,6 +1,6 @@
 import random
 
-from lib.effects.starry_night import StarryNight
+from lib.effects.library.starry_night import StarryNight
 
 
 class StarryNightColor(StarryNight):

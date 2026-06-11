@@ -46,8 +46,8 @@ Interactive API docs: `http://<host>:8000/docs`
 | POST   | `/presets/start`        | Start an effect                        |
 | POST   | `/presets/stop`         | Stop the running effect (fades out)    |
 | POST   | `/leds/color/set`       | Set a static color                     |
-| POST   | `/leds/color/brightness`| Set global brightness (0.0–1.0)        |
 | POST   | `/leds/color/clear`     | Turn all LEDs off                      |
+| POST   | `/leds/brightness`      | Set global brightness (0.0–1.0)        |
 
 ```bash
 # Start an effect with custom options
@@ -63,7 +63,7 @@ curl -X POST http://localhost:8000/leds/color/set \
 
 ## Writing an effect
 
-Drop a class into `lib/effects/` — it is discovered automatically. Options
+Drop a class into `lib/effects/library/` — it is discovered automatically. Options
 declared in `CONFIG_SCHEMA` are validated, coerced, and set as attributes.
 
 Option conventions: times in seconds, sizes in pixels, rates per second,

@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from lib.effects.visualizer import MusicVisualizer
+from lib.effects.library.visualizer import MusicVisualizer
 
 
 @pytest.fixture

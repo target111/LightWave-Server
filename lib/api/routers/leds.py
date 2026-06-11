@@ -15,14 +15,14 @@ def set_color(
     service.controller.set_color(rgb)
 
 
-@router.post("/color/brightness", status_code=204, response_class=Response)
+@router.post("/color/clear", status_code=204, response_class=Response)
+def clear(service: EffectService = Depends(require_idle)):
+    service.controller.clear()
+
+
+@router.post("/brightness", status_code=204, response_class=Response)
 def set_brightness(
     body: BrightnessRequest,
     service: EffectService = Depends(get_effect_service),
 ):
     service.controller.set_brightness(body.brightness)
-
-
-@router.post("/color/clear", status_code=204, response_class=Response)
-def clear(service: EffectService = Depends(require_idle)):
-    service.controller.clear()

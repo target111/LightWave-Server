@@ -4,7 +4,7 @@ defaults applied, values coerced, attributes set."""
 import pytest
 
 from lib.effects.base import EffectBase, fade_factor
-from lib.effects.candy_cane import CandyCane
+from lib.effects.library.candy_cane import CandyCane
 from lib.effects.registry import EffectRegistry
 
 

@@ -8,8 +8,6 @@ from lib.effects.base import EffectBase
 
 logger = logging.getLogger(__name__)
 
-_SKIP_MODULES = {"base", "registry"}
-
 
 class EffectRegistry:
     def __init__(self):
@@ -17,16 +15,14 @@ class EffectRegistry:
         self._load_all()
 
     def _load_all(self) -> None:
-        from lib import effects as effects_pkg
+        from lib.effects import library
 
-        for _, name, _ in pkgutil.iter_modules(effects_pkg.__path__):
-            if name.startswith("_") or name in _SKIP_MODULES:
+        for _, name, _ in pkgutil.iter_modules(library.__path__):
+            if name.startswith("_"):
                 continue
 
             try:
-                module = importlib.import_module(
-                    f"{effects_pkg.__name__}.{name}"
-                )
+                module = importlib.import_module(f"{library.__name__}.{name}")
             except Exception:
                 logger.exception("Failed to load effect module %s", name)
                 continue
