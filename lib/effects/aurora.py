@@ -12,19 +12,21 @@ class Aurora(EffectBase):
         {
             "name": "speed",
             "type": "float",
-            "default": 0.04,
-            "description": "Animation speed",
+            "default": 1.0,
+            "description": "Speed multiplier (1.0 = normal)",
         }
     ]
 
     speed: float
+
+    _BASE_SPEED = 2.4  # wave phase advance in radians/second at speed=1.0
 
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
         self.t = 0.0
 
     def tick(self, dt: float):
-        self.t += self.speed * dt * self.TARGET_FPS
+        self.t += self._BASE_SPEED * self.speed * dt
 
         for i in range(self.led.count):
             wave1 = math.sin(i * 0.1 + self.t)

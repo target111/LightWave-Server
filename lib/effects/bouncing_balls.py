@@ -18,8 +18,8 @@ class BouncingBalls(EffectBase):
         {
             "name": "gravity",
             "type": "float",
-            "default": -5.81,
-            "description": "Gravity (negative float)",
+            "default": 1.0,
+            "description": "Gravity strength multiplier (1.0 = normal)",
         },
         {
             "name": "dampening",
@@ -33,8 +33,11 @@ class BouncingBalls(EffectBase):
     gravity: float
     dampening: float
 
+    _BASE_GRAVITY = -5.81  # strip-heights/second² at gravity=1.0
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
+        self._g = self._BASE_GRAVITY * self.gravity
         self.start_height = 1
         self.colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 
@@ -58,14 +61,14 @@ class BouncingBalls(EffectBase):
                 continue
 
             h = (
-                0.5 * self.gravity * pow(t, 2)
+                0.5 * self._g * pow(t, 2)
                 + self.velocities[i] * t
                 + self.heights[i]
             )
 
             if h < 0:
                 h = 0
-                v_impact = self.velocities[i] + self.gravity * t
+                v_impact = self.velocities[i] + self._g * t
                 new_v = -v_impact * self.dampening
 
                 self.start_times[i] = now

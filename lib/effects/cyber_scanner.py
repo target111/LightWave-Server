@@ -1,4 +1,4 @@
-from lib.effects.base import EffectBase
+from lib.effects.base import EffectBase, fade_factor
 
 
 class CyberScanner(EffectBase):
@@ -14,24 +14,24 @@ class CyberScanner(EffectBase):
             "description": "Color of the eye",
         },
         {
-            "name": "decay",
+            "name": "trail_fade",
             "type": "float",
-            "default": 0.97,
-            "description": "Trail decay rate (0.0-1.0)",
+            "default": 1.6,
+            "description": "Seconds for the trail to fade out",
         },
         {
             "name": "speed",
             "type": "float",
-            # Original speed was 1 px/frame at 33 FPS (33 px/sec);
-            # at 60 FPS that is 0.55 px/frame.
-            "default": 0.55,
-            "description": "Movement speed (pixels per frame)",
+            "default": 1.0,
+            "description": "Speed multiplier (1.0 = 33 pixels/second)",
         },
     ]
 
     eye_color: tuple[int, int, int]
-    decay: float
+    trail_fade: float
     speed: float
+
+    _BASE_SPEED = 33.0  # pixels/second at speed=1.0
 
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
@@ -40,10 +40,8 @@ class CyberScanner(EffectBase):
         self.direction = 1
 
     def tick(self, dt: float):
-        frames = dt * self.TARGET_FPS
-
         # Fade out
-        decay = self.decay**frames
+        decay = fade_factor(dt, self.trail_fade)
         for i in range(self.led.count):
             self.heat[i] = self.heat[i] * decay
 
@@ -60,7 +58,7 @@ class CyberScanner(EffectBase):
             self.led.set_pixel(i, (pixel_r, pixel_g, pixel_b))
 
         # Move
-        self.position += self.direction * self.speed * frames
+        self.position += self.direction * self._BASE_SPEED * self.speed * dt
 
         if self.position >= self.led.count - 1:
             self.position = self.led.count - 1

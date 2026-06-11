@@ -11,20 +11,22 @@ class Fire(EffectBase):
     CONFIG_SCHEMA = [
         {
             "name": "cooling",
-            "type": "int",
-            "default": 55,
-            "description": "Rate at which cells cool down",
+            "type": "float",
+            "default": 1.0,
+            "description": "Cooling rate multiplier (higher = shorter flames)",
         },
         {
             "name": "sparking",
-            "type": "int",
-            "default": 120,
-            "description": "Chance of a spark igniting (0-255)",
+            "type": "float",
+            "default": 0.47,
+            "description": "Chance of a spark igniting per update (0.0-1.0)",
         },
     ]
 
-    cooling: int
-    sparking: int
+    cooling: float
+    sparking: float
+
+    _BASE_COOLING = 55  # heat units shed per update at cooling=1.0
 
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
@@ -52,7 +54,8 @@ class Fire(EffectBase):
         self.accum -= self.update_interval
 
         # Step 1: Cool down
-        max_cooldown = ((self.cooling * 10) // self.led.count) + 2
+        cooling = int(self._BASE_COOLING * self.cooling)
+        max_cooldown = ((cooling * 10) // self.led.count) + 2
         for i in range(self.led.count):
             cooldown = random.randint(0, max_cooldown)
             self.heat[i] = max(0, self.heat[i] - cooldown)
@@ -64,7 +67,7 @@ class Fire(EffectBase):
             ) // 3
 
         # Step 3: Spark
-        if random.randint(0, 255) < self.sparking:
+        if random.random() < self.sparking:
             y = random.randint(0, 7)
             self.heat[y] = min(255, self.heat[y] + random.randint(160, 255))
 

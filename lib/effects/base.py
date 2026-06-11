@@ -22,6 +22,14 @@ _COERCERS: dict[str, Callable[[Any], Any]] = {
 }
 
 
+def fade_factor(dt: float, fade_time: float, residual: float = 0.05) -> float:
+    """Per-tick multiplier so an exponentially decaying value reaches
+    `residual` of its starting point after `fade_time` seconds."""
+    if fade_time <= 0:
+        return 0.0
+    return residual ** (dt / fade_time)
+
+
 class EffectBase(abc.ABC, threading.Thread):
     """Base class for animations. Override `tick()` (mandatory) and
     `teardown()` (optional, for releasing sockets/files).
@@ -29,7 +37,12 @@ class EffectBase(abc.ABC, threading.Thread):
     Options declared in CONFIG_SCHEMA are resolved against the kwargs
     (defaults applied, values coerced to the declared type) and set as
     attributes, so an effect with `{"name": "speed", ...}` in its schema
-    can simply read `self.speed`."""
+    can simply read `self.speed`.
+
+    Option conventions: times in seconds, sizes in pixels, rates per
+    second, probabilities 0.0-1.0. Unitless tuning knobs are multipliers
+    where 1.0 is the designed look; the tuned base value lives in the
+    effect as a named constant."""
 
     CONFIG_SCHEMA: list[dict] = []
     TARGET_FPS: int = 60

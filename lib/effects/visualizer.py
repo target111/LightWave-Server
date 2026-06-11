@@ -5,7 +5,7 @@ import socket
 import struct
 import time
 
-from lib.effects.base import EffectBase
+from lib.effects.base import EffectBase, fade_factor
 
 
 class MusicVisualizer(EffectBase):
@@ -47,24 +47,20 @@ class MusicVisualizer(EffectBase):
         {
             "name": "pulse_speed",
             "type": "float",
-            "default": 2.0,
-            "description": (
-                "Speed of bass ripple pulses (pixels per frame at 60 FPS)"
-            ),
+            "default": 120.0,
+            "description": "Speed of bass ripple pulses (pixels per second)",
         },
         {
-            "name": "sparkle_decay",
-            "type": "float",
-            "default": 0.88,
-            "description": "Treble sparkle fade speed (per frame at 60 FPS)",
-        },
-        {
-            "name": "flash_decay",
+            "name": "sparkle_fade",
             "type": "float",
             "default": 0.4,
-            "description": (
-                "Beat flash fade speed (0.0 = 1 frame, 0.9 = slow fade)"
-            ),
+            "description": "Seconds for treble sparkles to fade out",
+        },
+        {
+            "name": "flash_fade",
+            "type": "float",
+            "default": 0.05,
+            "description": "Seconds for the beat flash to fade out",
         },
         {
             "name": "pulse_intensity",
@@ -103,8 +99,8 @@ class MusicVisualizer(EffectBase):
     sensitivity: float
     beat_threshold: float
     pulse_speed: float
-    sparkle_decay: float
-    flash_decay: float
+    sparkle_fade: float
+    flash_fade: float
     pulse_intensity: float
     beat_multiplier: float
     pulse_width: float
@@ -234,15 +230,15 @@ class MusicVisualizer(EffectBase):
             hue = (self.base_hue + self.beat_hue_offset) % 1.0
             self.pulses.append([0.0, intensity, hue])
 
-    def _update_pulses(self, frames: float):
+    def _update_pulses(self, dt: float):
         n = self.led.count
         center = n / 2.0
         alive = []
 
-        pulse_decay = 0.96**frames
+        pulse_decay = 0.96 ** (dt * self.TARGET_FPS)
 
         for pos, intensity, hue in self.pulses:
-            pos += self.pulse_speed * frames
+            pos += self.pulse_speed * dt
             intensity *= pulse_decay
 
             if intensity < 0.02 or pos > center + 5:
@@ -268,9 +264,9 @@ class MusicVisualizer(EffectBase):
 
         self.pulses = alive
 
-    def _update_sparkles(self, frames: float):
+    def _update_sparkles(self, dt: float, frames: float):
         n = self.led.count
-        decay = self.sparkle_decay**frames
+        decay = fade_factor(dt, self.sparkle_fade)
 
         for i in range(n):
             self.sparkle_buffer[i] *= decay
@@ -312,11 +308,11 @@ class MusicVisualizer(EffectBase):
             self.pixel_g[i] += g
             self.pixel_b[i] += b
 
-    def _flash(self, beat: bool, frames: float):
+    def _flash(self, beat: bool, dt: float):
         if beat:
             self.flash_level = 0.6
 
-        self.flash_level *= self.flash_decay**frames
+        self.flash_level *= fade_factor(dt, self.flash_fade)
 
         if self.flash_level > 0.01:
             n = self.led.count
@@ -352,9 +348,9 @@ class MusicVisualizer(EffectBase):
         # Layers blend additively into the pixel buffer
         self._background_wave(frames)
         self._spawn_pulses(beat, frames)
-        self._update_pulses(frames)
-        self._update_sparkles(frames)
-        self._flash(beat, frames)
+        self._update_pulses(dt)
+        self._update_sparkles(dt, frames)
+        self._flash(beat, dt)
 
         buffer = [
             (

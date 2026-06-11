@@ -10,10 +10,8 @@ class CandyCane(EffectBase):
         {
             "name": "speed",
             "type": "float",
-            # Original speed was 1 px/frame at 20 FPS (20 px/sec);
-            # at 60 FPS that is 0.33 px/frame.
-            "default": 0.33,
-            "description": "Rotation speed (pixels per frame)",
+            "default": 1.0,
+            "description": "Speed multiplier (1.0 = 20 pixels/second)",
         },
         {
             "name": "stripe_width",
@@ -40,6 +38,8 @@ class CandyCane(EffectBase):
     color1: tuple[int, int, int]
     color2: tuple[int, int, int]
 
+    _BASE_SPEED = 20.0  # pixels/second at speed=1.0
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
         self.offset = 0.0
@@ -53,7 +53,7 @@ class CandyCane(EffectBase):
             else:
                 self.led.set_pixel(i, self.color2)
 
-        self.offset += self.speed * dt * self.TARGET_FPS
+        self.offset += self._BASE_SPEED * self.speed * dt
 
         if self.offset >= (self.stripe_width * 2):
             self.offset -= self.stripe_width * 2

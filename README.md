@@ -56,22 +56,15 @@ curl -X POST http://localhost:8000/leds/color/set \
   -d '{"color": "#FF0000"}'
 ```
 
-## Music visualizer
-
-The `MusicVisualizer` effect listens for FFT data over UDP (default port
-5555): one packet per frame containing little-endian float32 bins in the
-0.0–1.0 range. When packets stop arriving it fades back to an ambient wave.
-
-`music_client.py` is an early standalone client that captures system audio
-via PipeWire/PulseAudio and streams the FFT (requires `numpy`). The
-`ambilight*.py` scripts are early clients as well; a Rust client is in
-development to replace them. None of their dependencies are part of the
-server install.
-
 ## Writing an effect
 
 Drop a class into `lib/effects/` — it is discovered automatically. Options
 declared in `CONFIG_SCHEMA` are validated, coerced, and set as attributes.
+
+Option conventions: times in seconds, sizes in pixels, rates per second,
+probabilities 0.0–1.0. Unitless knobs (speed, density, …) are multipliers
+where `1.0` is the designed look; keep the tuned base value inside the
+effect as a named constant.
 
 ```python
 from lib.effects.base import EffectBase

@@ -11,11 +11,13 @@ class RainbowCycle(EffectBase):
             "name": "speed",
             "type": "float",
             "default": 1.0,
-            "description": "Cycle speed",
+            "description": "Speed multiplier (1.0 = one cycle per ~4.3 s)",
         }
     ]
 
     speed: float
+
+    _BASE_SPEED = 60.0  # color-wheel steps (of 256)/second at speed=1.0
 
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
@@ -33,7 +35,7 @@ class RainbowCycle(EffectBase):
             return (0, pos * 3, 255 - pos * 3)
 
     def tick(self, dt: float):
-        self.pos += self.speed * dt * self.TARGET_FPS
+        self.pos += self._BASE_SPEED * self.speed * dt
         if self.pos >= 256:
             self.pos -= 256
 

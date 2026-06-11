@@ -12,15 +12,14 @@ class StarryNight(EffectBase):
         {
             "name": "density",
             "type": "float",
-            "default": 0.02,
-            "description": "Density of stars (probability per frame)",
+            "default": 1.0,
+            "description": "Star density multiplier (1.0 = normal)",
         },
         {
-            "name": "speed",
-            "type": "int",
-            # Original fade was 15/frame at 20 FPS; 5/frame at 60 FPS.
-            "default": 5,
-            "description": "Fade speed (brightness change per frame)",
+            "name": "fade_time",
+            "type": "float",
+            "default": 0.85,
+            "description": "Seconds for a star to fade in (and out again)",
         },
         {
             "name": "color",
@@ -31,8 +30,11 @@ class StarryNight(EffectBase):
     ]
 
     density: float
-    speed: int
+    fade_time: float
     color: tuple[int, int, int]
+
+    # Per-pixel spawn probability per second at density=1.0
+    _BASE_SPAWN_RATE = 0.4
 
     _OFF, _FADE_IN, _FADE_OUT = range(3)
 
@@ -49,24 +51,23 @@ class StarryNight(EffectBase):
         return self.color
 
     def tick(self, dt: float):
-        frames = dt * self.TARGET_FPS
+        spawn_chance = self._BASE_SPAWN_RATE * self.density * dt
+        fade_step = 255 * dt / self.fade_time
 
         for i in range(self.led.count):
             if self.states[i] == self._OFF:
-                # Density was tuned per-frame at 20 FPS; divide by 3 so the
-                # 60 FPS loop spawns at the same rate per second.
-                if random.random() < (self.density / 3.0) * frames:
+                if random.random() < spawn_chance:
                     self.states[i] = self._FADE_IN
                     self.pixel_colors[i] = self._pick_color()
 
             elif self.states[i] == self._FADE_IN:
-                self.brightness[i] += self.speed * frames
+                self.brightness[i] += fade_step
                 if self.brightness[i] >= 255:
                     self.brightness[i] = 255
                     self.states[i] = self._FADE_OUT
 
             elif self.states[i] == self._FADE_OUT:
-                self.brightness[i] -= self.speed * frames
+                self.brightness[i] -= fade_step
                 if self.brightness[i] <= 0:
                     self.brightness[i] = 0
                     self.states[i] = self._OFF

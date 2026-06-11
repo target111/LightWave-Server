@@ -12,15 +12,14 @@ class StarryNightColor(StarryNight):
         {
             "name": "density",
             "type": "float",
-            "default": 0.02,
-            "description": "Density of stars (probability per frame)",
+            "default": 1.0,
+            "description": "Star density multiplier (1.0 = normal)",
         },
         {
-            "name": "speed",
-            "type": "int",
-            # Original fade was 10/frame at 20 FPS; ~3/frame at 60 FPS.
-            "default": 3,
-            "description": "Fade speed (brightness change per frame)",
+            "name": "fade_time",
+            "type": "float",
+            "default": 1.4,
+            "description": "Seconds for a star to fade in (and out again)",
         },
     ]
 

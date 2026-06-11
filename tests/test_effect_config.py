@@ -3,14 +3,14 @@ defaults applied, values coerced, attributes set."""
 
 import pytest
 
-from lib.effects.base import EffectBase
+from lib.effects.base import EffectBase, fade_factor
 from lib.effects.candy_cane import CandyCane
 from lib.effects.registry import EffectRegistry
 
 
 def test_defaults_become_attributes(led):
     effect = CandyCane(led)
-    assert effect.speed == 0.33
+    assert effect.speed == 1.0
     assert effect.stripe_width == 5
     assert effect.color1 == (255, 0, 0)
 
@@ -29,7 +29,7 @@ def test_bad_value_raises(led):
 
 def test_unknown_option_warns_but_works(led, caplog):
     effect = CandyCane(led, nonsense=1)
-    assert effect.speed == 0.33
+    assert effect.speed == 1.0
     assert "nonsense" in caplog.text
 
 
@@ -62,6 +62,14 @@ def test_schema_defaults_match_resolved_config(led):
                 )
         finally:
             effect.teardown()
+
+
+def test_fade_factor_reaches_residual_after_fade_time():
+    value = 1.0
+    for _ in range(60):
+        value *= fade_factor(1 / 60, fade_time=1.0)
+    assert value == pytest.approx(0.05)
+    assert fade_factor(1 / 60, fade_time=0.0) == 0.0
 
 
 def test_animation_speed_is_frame_rate_independent(led):

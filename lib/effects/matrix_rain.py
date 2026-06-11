@@ -12,8 +12,8 @@ class MatrixRain(EffectBase):
         {
             "name": "spawn_rate",
             "type": "float",
-            "default": 0.05,
-            "description": "Probability of a new drop spawning per frame",
+            "default": 2.5,
+            "description": "New drops per second",
         },
         {
             "name": "trail_length",
@@ -40,21 +40,17 @@ class MatrixRain(EffectBase):
     head_color: tuple[int, int, int]
     tail_color: tuple[int, int, int]
 
+    _MIN_SPEED = 10.0  # drop fall speed range in pixels/second
+    _MAX_SPEED = 40.0
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
-        # Rates were tuned at 50 FPS; rescale for the 60 FPS loop.
-        self.spawn_rate *= 50 / 60
-        self.min_speed = 0.2 * (50 / 60)
-        self.max_speed = 0.8 * (50 / 60)
-
         self.drops = []
 
     def tick(self, dt: float):
-        frames = dt * self.TARGET_FPS
-
         # Spawn
-        if random.random() < self.spawn_rate * frames:
-            speed = random.uniform(self.min_speed, self.max_speed)
+        if random.random() < self.spawn_rate * dt:
+            speed = random.uniform(self._MIN_SPEED, self._MAX_SPEED)
             self.drops.append([0.0, speed])
 
         pixel_buffer = {}
@@ -62,7 +58,7 @@ class MatrixRain(EffectBase):
 
         for drop in self.drops:
             pos, speed = drop
-            pos += speed * frames
+            pos += speed * dt
 
             head_pixel = int(pos)
 
