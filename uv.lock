@@ -296,6 +296,7 @@ pi = [
     { name = "adafruit-blinka" },
     { name = "adafruit-circuitpython-neopixel" },
     { name = "rpi-gpio", marker = "platform_machine == 'aarch64' or platform_machine == 'armv7l'" },
+    { name = "rpi-ws281x", marker = "platform_machine == 'aarch64' or platform_machine == 'armv7l'" },
 ]
 
 [package.metadata]
@@ -310,6 +311,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.3.0" },
     { name = "rpi-gpio", marker = "(platform_machine == 'aarch64' and extra == 'pi') or (platform_machine == 'armv7l' and extra == 'pi')", specifier = ">=0.7.1" },
+    { name = "rpi-ws281x", marker = "(platform_machine == 'aarch64' and extra == 'pi') or (platform_machine == 'armv7l' and extra == 'pi')", specifier = ">=5.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.12" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.46.0" },
 ]
@@ -531,6 +533,12 @@ name = "rpi-gpio"
 version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c4/0f/10b524a12b3445af1c607c27b2f5ed122ef55756e29942900e5c950735f2/RPi.GPIO-0.7.1.tar.gz", hash = "sha256:cd61c4b03c37b62bba4a5acfea9862749c33c618e0295e7e90aa4713fb373b70", size = 29090, upload-time = "2022-02-06T15:15:06.022Z" }
+
+[[package]]
+name = "rpi-ws281x"
+version = "5.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c0/1e/642208a685c5e96d38323f42c75d9b24f95e2d1b8390dd104e04a712f29e/rpi_ws281x-5.0.0.tar.gz", hash = "sha256:00ce6db771436b778d0930245cf8ea2aae11008cc5fd67d57789c5422af3ee55", size = 64519, upload-time = "2023-05-16T12:04:22.463Z" }
 
 [[package]]
 name = "ruff"

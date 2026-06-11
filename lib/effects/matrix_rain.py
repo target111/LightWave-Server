@@ -1,6 +1,6 @@
 import random
 
-from lib.effects.base import EffectBase
+from lib.effects.base import EffectBase, scale_color
 
 
 class MatrixRain(EffectBase):
@@ -78,9 +78,6 @@ class MatrixRain(EffectBase):
             if i in pixel_buffer:
                 intensity = pixel_buffer[i]
                 color = self.head_color if intensity > 0.9 else self.tail_color
-                r = int(color[0] * intensity)
-                g = int(color[1] * intensity)
-                b = int(color[2] * intensity)
-                self.led.set_pixel(i, (r, g, b))
+                self.led.set_pixel(i, scale_color(color, intensity))
             else:
                 self.led.set_pixel(i, (0, 0, 0))

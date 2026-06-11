@@ -33,15 +33,21 @@ def test_unknown_option_warns_but_works(led, caplog):
     assert "nonsense" in caplog.text
 
 
+# Effects that bind OS resources in __init__; port=0 picks a free port
+# instead of the real one.
+EXTRA_ARGS = {
+    "MusicVisualizer": {"port": 0},
+    "Ambilight": {"port": 0},
+}
+
+
 def test_every_registered_effect_constructs_and_ticks(led):
     registry = EffectRegistry()
     names = registry.names()
     assert len(names) >= 12
 
     for name in names:
-        # port=0 keeps MusicVisualizer off the real port; other effects
-        # just log it as an unknown option and ignore it.
-        effect = registry.get(name)(led, port=0)
+        effect = registry.get(name)(led, **EXTRA_ARGS.get(name, {}))
         try:
             for _ in range(3):
                 effect.tick(1 / 60)
@@ -54,7 +60,7 @@ def test_schema_defaults_match_resolved_config(led):
     registry = EffectRegistry()
     for name in registry.names():
         cls = registry.get(name)
-        effect = cls(led, port=0)
+        effect = cls(led, **EXTRA_ARGS.get(name, {}))
         try:
             for spec in cls.CONFIG_SCHEMA:
                 assert hasattr(effect, spec["name"]), (

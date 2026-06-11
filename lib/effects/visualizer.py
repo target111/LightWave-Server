@@ -1,11 +1,9 @@
 import colorsys
 import math
 import random
-import socket
-import struct
-import time
 
-from lib.effects.base import EffectBase, fade_factor
+from lib.effects.base import EffectBase, fade_factor, to_rgb255
+from lib.effects.udp import UdpFloatListener
 
 
 class MusicVisualizer(EffectBase):
@@ -107,6 +105,15 @@ class MusicVisualizer(EffectBase):
     ambient_brightness: float
     silence_timeout: float
 
+    _BEAT_COOLDOWN = 0.1  # seconds of lockout after a beat hit
+    _HUE_DRIFT_RATE = 0.18  # hue cycles/second at mids=1.0
+    _BEAT_HUE_FADE = 0.6  # seconds for the beat hue offset to fade out
+    _PULSE_SPAWN_RATE = 60.0  # pulses spawned/second while bass is hot
+    _PULSE_FADE = 1.2  # seconds for a pulse to fade out
+    _SPARKLE_SPAWN_RATE = 720.0  # sparkles spawned/second at treble=1.0
+    _WAVE_SPEED = 1.2  # background wave phase/second at silence
+    _WAVE_ENERGY_BOOST = 6.0  # extra wave phase/second at energy=1.0
+
     def __init__(self, led, **kwargs):
         super().__init__(led, **kwargs)
 
@@ -141,34 +148,15 @@ class MusicVisualizer(EffectBase):
         self.pixel_g = [0.0] * n
         self.pixel_b = [0.0] * n
 
-        self._last_packet_time = time.monotonic()
-        # Spawn rates were "one per frame" at 60 FPS; accumulate fractional
-        # frames so slower/faster loops produce the same rate per second.
+        self._silence_elapsed = 0.0
+        # Spawn rates accumulate fractional spawns so slower/faster loops
+        # produce the same rate per second.
         self._pulse_spawn_accum = 0.0
         self._sparkle_spawn_accum = 0.0
 
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind(("0.0.0.0", self.port))
-        self._sock.setblocking(False)
+        self._udp = UdpFloatListener(self.port)
 
-    def _drain_udp(self) -> list[float] | None:
-        latest_data = None
-        while True:
-            try:
-                data, _ = self._sock.recvfrom(4096)
-                latest_data = data
-            except BlockingIOError:
-                break
-
-        if latest_data:
-            num_floats = len(latest_data) // 4
-            if num_floats > 0:
-                payload = latest_data[: num_floats * 4]
-                return list(struct.unpack(f"<{num_floats}f", payload))
-        return None
-
-    def _update_bins(self, raw: list[float]):
+    def _update_bins(self, raw):
         if len(self._bins) != len(raw):
             self._bins = [0.0] * len(raw)
 
@@ -191,34 +179,36 @@ class MusicVisualizer(EffectBase):
         self.treble = max(self._bins[mid_end:])
         self.energy = sum(self._bins) / n
 
-    def _detect_beat(self, frames: float) -> bool:
+    def _detect_beat(self, dt: float) -> bool:
         avg = sum(self.energy_history) / len(self.energy_history)
         self.energy_history[self.energy_idx] = self.energy
         self.energy_idx = (self.energy_idx + 1) % len(self.energy_history)
 
         if self.beat_cooldown > 0:
-            self.beat_cooldown -= frames
+            self.beat_cooldown -= dt
             return False
 
         if avg > 0.01 and self.energy > avg * self.beat_threshold:
-            self.beat_cooldown = 6  # ~100ms lockout
+            self.beat_cooldown = self._BEAT_COOLDOWN
             return True
         return False
 
-    def _update_hue(self, beat: bool, frames: float):
-        self.base_hue = (self.base_hue + self.mids * 0.003 * frames) % 1.0
+    def _update_hue(self, beat: bool, dt: float):
+        self.base_hue = (
+            self.base_hue + self.mids * self._HUE_DRIFT_RATE * dt
+        ) % 1.0
 
         if beat:
             self.beat_hue_offset = random.uniform(0.15, 0.45)
         else:
-            self.beat_hue_offset *= 0.92**frames
+            self.beat_hue_offset *= fade_factor(dt, self._BEAT_HUE_FADE)
 
-    def _spawn_pulses(self, beat: bool, frames: float):
+    def _spawn_pulses(self, beat: bool, dt: float):
         if self.bass <= 0.15:
             self._pulse_spawn_accum = 0.0
             return
 
-        self._pulse_spawn_accum += frames
+        self._pulse_spawn_accum += self._PULSE_SPAWN_RATE * dt
         while self._pulse_spawn_accum >= 1.0:
             self._pulse_spawn_accum -= 1.0
 
@@ -235,7 +225,7 @@ class MusicVisualizer(EffectBase):
         center = n / 2.0
         alive = []
 
-        pulse_decay = 0.96 ** (dt * self.TARGET_FPS)
+        pulse_decay = fade_factor(dt, self._PULSE_FADE)
 
         for pos, intensity, hue in self.pulses:
             pos += self.pulse_speed * dt
@@ -264,14 +254,14 @@ class MusicVisualizer(EffectBase):
 
         self.pulses = alive
 
-    def _update_sparkles(self, dt: float, frames: float):
+    def _update_sparkles(self, dt: float):
         n = self.led.count
         decay = fade_factor(dt, self.sparkle_fade)
 
         for i in range(n):
             self.sparkle_buffer[i] *= decay
 
-        self._sparkle_spawn_accum += self.treble * 12 * frames
+        self._sparkle_spawn_accum += self.treble * self._SPARKLE_SPAWN_RATE * dt
         num_new = int(self._sparkle_spawn_accum)
         self._sparkle_spawn_accum -= num_new
 
@@ -290,9 +280,11 @@ class MusicVisualizer(EffectBase):
                 self.pixel_g[i] += g * v
                 self.pixel_b[i] += b * v
 
-    def _background_wave(self, frames: float):
+    def _background_wave(self, dt: float):
         n = self.led.count
-        self.wave_t += (0.02 + self.energy * 0.1) * frames
+        self.wave_t += (
+            self._WAVE_SPEED + self.energy * self._WAVE_ENERGY_BOOST
+        ) * dt
 
         hue = (self.base_hue + self.beat_hue_offset) % 1.0
         base_brightness = self.ambient_brightness + self.energy * 0.10
@@ -322,22 +314,24 @@ class MusicVisualizer(EffectBase):
                 self.pixel_b[i] += self.flash_level
 
     def tick(self, dt: float):
-        now = time.monotonic()
-        frames = dt * self.TARGET_FPS
-
-        raw = self._drain_udp()
+        raw = self._udp.drain_latest()
         if raw is not None:
-            self._last_packet_time = now
+            self._silence_elapsed = 0.0
             self._update_bins(raw)
-        elif now - self._last_packet_time > self.silence_timeout:
-            # The sender stopped (or died mid-stream). Without this the bins
-            # freeze at their last values and the effect keeps replaying the
-            # final frame; feed silence so it decays back to the ambient wave.
-            self._update_bins([0.0] * len(self._bins))
+        else:
+            self._silence_elapsed += dt
+            if self._silence_elapsed > self.silence_timeout and any(
+                b > 1e-4 for b in self._bins
+            ):
+                # The sender stopped (or died mid-stream). Without this the
+                # bins freeze at their last values and the effect keeps
+                # replaying the final frame; feed silence so it decays back
+                # to the ambient wave.
+                self._update_bins([0.0] * len(self._bins))
         self._extract_bands()
 
-        beat = self._detect_beat(frames)
-        self._update_hue(beat, frames)
+        beat = self._detect_beat(dt)
+        self._update_hue(beat, dt)
 
         n = self.led.count
 
@@ -346,24 +340,18 @@ class MusicVisualizer(EffectBase):
         self.pixel_b = [0.0] * n
 
         # Layers blend additively into the pixel buffer
-        self._background_wave(frames)
-        self._spawn_pulses(beat, frames)
+        self._background_wave(dt)
+        self._spawn_pulses(beat, dt)
         self._update_pulses(dt)
-        self._update_sparkles(dt, frames)
+        self._update_sparkles(dt)
         self._flash(beat, dt)
 
-        buffer = [
-            (
-                max(0, min(255, int(self.pixel_r[i] * 255))),
-                max(0, min(255, int(self.pixel_g[i] * 255))),
-                max(0, min(255, int(self.pixel_b[i] * 255))),
-            )
-            for i in range(n)
-        ]
-        self.led.set_pixels(buffer)
+        self.led.set_pixels(
+            [
+                to_rgb255(self.pixel_r[i], self.pixel_g[i], self.pixel_b[i])
+                for i in range(n)
+            ]
+        )
 
     def teardown(self):
-        try:
-            self._sock.close()
-        except OSError:
-            pass
+        self._udp.close()

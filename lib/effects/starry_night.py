@@ -1,6 +1,6 @@
 import random
 
-from lib.effects.base import EffectBase
+from lib.effects.base import EffectBase, scale_color
 
 
 class StarryNight(EffectBase):
@@ -73,11 +73,9 @@ class StarryNight(EffectBase):
                     self.states[i] = self._OFF
 
             if self.brightness[i] > 0:
-                star = self.pixel_colors[i]
                 b_factor = self.brightness[i] / 255.0
-                r = int(star[0] * b_factor)
-                g = int(star[1] * b_factor)
-                b = int(star[2] * b_factor)
-                self.led.set_pixel(i, (r, g, b))
+                self.led.set_pixel(
+                    i, scale_color(self.pixel_colors[i], b_factor)
+                )
             else:
                 self.led.set_pixel(i, (0, 0, 0))

@@ -26,6 +26,10 @@ class Fire(EffectBase):
     cooling: float
     sparking: float
 
+    # The simulation was tuned at ~30 FPS and is step-sensitive, so run
+    # the loop at that rate instead of scaling the math per tick.
+    TARGET_FPS = 33
+
     _BASE_COOLING = 55  # heat units shed per update at cooling=1.0
 
     def __init__(self, led, **kwargs):
@@ -41,18 +45,7 @@ class Fire(EffectBase):
             else:
                 self.palette.append((255, 255, (i - 170) * 3))
 
-        # The simulation was tuned at ~30 FPS and is step-sensitive, so on
-        # the 60 FPS loop we skip frames instead of scaling the math.
-        self.accum = 0.0
-        self.update_interval = 0.03
-
     def tick(self, dt: float):
-        self.accum += dt
-        if self.accum < self.update_interval:
-            return
-
-        self.accum -= self.update_interval
-
         # Step 1: Cool down
         cooling = int(self._BASE_COOLING * self.cooling)
         max_cooldown = ((cooling * 10) // self.led.count) + 2

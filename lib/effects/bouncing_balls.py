@@ -1,5 +1,3 @@
-import time
-
 from lib.effects.base import EffectBase
 
 
@@ -41,22 +39,18 @@ class BouncingBalls(EffectBase):
         self.start_height = 1
         self.colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 
-        self.start_times = [0.0] * self.ball_count
+        # Seconds since each ball's current arc started; negative values
+        # stagger the initial drops
+        self.elapsed = [-(i * 0.5) for i in range(self.ball_count)]
         self.velocities = [0.0] * self.ball_count
         self.heights = [self.start_height] * self.ball_count
 
-        now = time.time()
-        for i in range(self.ball_count):
-            self.start_times[i] = now + (i * 0.5)
-            self.velocities[i] = 0.0
-
     def tick(self, dt: float):
-        # Physics integrate against wall-clock time, so dt is unused
-        now = time.time()
         self.led.clear()
 
         for i in range(self.ball_count):
-            t = now - self.start_times[i]
+            self.elapsed[i] += dt
+            t = self.elapsed[i]
             if t < 0:
                 continue
 
@@ -71,14 +65,14 @@ class BouncingBalls(EffectBase):
                 v_impact = self.velocities[i] + self._g * t
                 new_v = -v_impact * self.dampening
 
-                self.start_times[i] = now
+                self.elapsed[i] = 0.0
                 self.heights[i] = 0
                 self.velocities[i] = new_v
 
                 if new_v < 1.0:
                     self.heights[i] = self.start_height
                     self.velocities[i] = 0
-                    self.start_times[i] = now + 1.0
+                    self.elapsed[i] = -1.0
 
             position = int(h * (self.led.count - 1))
 

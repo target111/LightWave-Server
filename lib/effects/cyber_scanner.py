@@ -1,4 +1,4 @@
-from lib.effects.base import EffectBase, fade_factor
+from lib.effects.base import EffectBase, fade_factor, scale_color
 
 
 class CyberScanner(EffectBase):
@@ -52,10 +52,7 @@ class CyberScanner(EffectBase):
 
         # Render
         for i in range(self.led.count):
-            pixel_r = int(self.eye_color[0] * self.heat[i])
-            pixel_g = int(self.eye_color[1] * self.heat[i])
-            pixel_b = int(self.eye_color[2] * self.heat[i])
-            self.led.set_pixel(i, (pixel_r, pixel_g, pixel_b))
+            self.led.set_pixel(i, scale_color(self.eye_color, self.heat[i]))
 
         # Move
         self.position += self.direction * self._BASE_SPEED * self.speed * dt

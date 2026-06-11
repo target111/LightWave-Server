@@ -18,7 +18,8 @@ def visualizer(led):
 
 
 def _send_bins(effect: MusicVisualizer, value: float, count: int = 32):
-    port = effect._sock.getsockname()[1]
+    recv_sock = effect._udp._sock
+    port = recv_sock.getsockname()[1]
     payload = struct.pack(f"<{count}f", *([value] * count))
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.sendto(payload, ("127.0.0.1", port))
@@ -26,7 +27,7 @@ def _send_bins(effect: MusicVisualizer, value: float, count: int = 32):
     deadline = time.monotonic() + 1.0
     while time.monotonic() < deadline:
         try:
-            effect._sock.recvfrom(4096, socket.MSG_PEEK)
+            recv_sock.recvfrom(4096, socket.MSG_PEEK)
             return
         except BlockingIOError:
             time.sleep(0.001)
@@ -47,7 +48,6 @@ def test_sender_stop_fades_to_ambient(visualizer):
 
     # Sender interrupted: no more packets. Without the silence timeout the
     # bins stay frozen and pulses keep spawning from stale data forever.
-    time.sleep(0.06)
     for _ in range(150):
         visualizer.tick(1 / 60)
 

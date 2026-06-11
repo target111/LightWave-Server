@@ -16,6 +16,7 @@ pi = [
     "adafruit-blinka>=9.1.0",
     "adafruit-circuitpython-neopixel>=6.4.2",
     "rpi-gpio>=0.7.1 ; platform_machine == 'aarch64' or platform_machine == 'armv7l'",
+    "rpi-ws281x>=5.0.0 ; platform_machine == 'aarch64' or platform_machine == 'armv7l'",
 ]
 dev = [
     "httpx>=0.28.1",

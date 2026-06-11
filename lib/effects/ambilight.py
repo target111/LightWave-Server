@@ -1,9 +1,8 @@
 import math
 import random
-import socket
-import struct
 
-from lib.effects.base import EffectBase, fade_factor
+from lib.effects.base import EffectBase, fade_factor, to_rgb255
+from lib.effects.udp import UdpFloatListener
 
 Rgb = tuple[float, float, float]
 
@@ -29,7 +28,9 @@ class Ambilight(EffectBase):
             "name": "smoothing",
             "type": "float",
             "default": 0.6,
-            "description": "Temporal smoothing (0.0 = instant, 0.99 = molasses)",
+            "description": (
+                "Temporal smoothing (0.0 = instant, 0.99 = molasses)"
+            ),
         },
         {
             "name": "drift_amount",
@@ -115,7 +116,6 @@ class Ambilight(EffectBase):
 
         # -- box state (populated on first UDP packet) --
         self.box_colors: list[Rgb] = []
-        self.prev_box_colors: list[Rgb] = []
 
         # -- drift state --
         self.drift_t = 0.0
@@ -123,30 +123,12 @@ class Ambilight(EffectBase):
         # -- sparkle state --
         self.sparkle_buffer = [0.0] * n
         self.scene_activity = 0.0  # 0.0 = calm, 1.0 = very active
+        self._raw_activity = 0.0  # per-packet color delta, pre-smoothing
 
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind(("0.0.0.0", self.port))
-        self._sock.setblocking(False)
-
-    def _drain_udp(self) -> list[float] | None:
-        """Read all pending packets, keep only the latest."""
-        latest = None
-        while True:
-            try:
-                data, _ = self._sock.recvfrom(4096)
-                latest = data
-            except BlockingIOError:
-                break
-
-        if latest:
-            num_floats = len(latest) // 4
-            if num_floats >= 3 and num_floats % 3 == 0:
-                return list(struct.unpack(f"<{num_floats}f", latest[: num_floats * 4]))
-        return None
+        self._udp = UdpFloatListener(self.port)
 
     @staticmethod
-    def _parse_boxes(raw: list[float]) -> list[Rgb]:
+    def _parse_boxes(raw) -> list[Rgb]:
         """Convert flat float list into (R, G, B) tuples, clamped 0-1."""
         return [
             (
@@ -154,52 +136,51 @@ class Ambilight(EffectBase):
                 max(0.0, min(1.0, raw[i + 1])),
                 max(0.0, min(1.0, raw[i + 2])),
             )
-            for i in range(0, len(raw), 3)
+            for i in range(0, len(raw) - 2, 3)
         ]
 
     def _smooth_boxes(self, new_boxes: list[Rgb]):
-        """Exponential moving average on box colors for smooth transitions."""
+        """Exponential moving average on box colors for smooth transitions.
+        Also measures how far the smoothed colors moved, feeding the
+        scene-activity signal."""
         # Handle box count changes (e.g. capture app reconfigured)
         if len(new_boxes) != len(self.box_colors):
             self.box_colors = list(new_boxes)
-            self.prev_box_colors = list(new_boxes)
+            self._raw_activity = 0.0
             return
 
-        self.prev_box_colors = list(self.box_colors)
         a = self.smoothing
-        self.box_colors = [
-            (
+        total_delta = 0.0
+        smoothed = []
+        for old, new in zip(self.box_colors, new_boxes):
+            color = (
                 a * old[0] + (1.0 - a) * new[0],
                 a * old[1] + (1.0 - a) * new[1],
                 a * old[2] + (1.0 - a) * new[2],
             )
-            for old, new in zip(self.box_colors, new_boxes)
-        ]
+            total_delta += (
+                abs(color[0] - old[0])
+                + abs(color[1] - old[1])
+                + abs(color[2] - old[2])
+            )
+            smoothed.append(color)
+
+        self.box_colors = smoothed
+        self._raw_activity = min(
+            1.0, total_delta / len(new_boxes) * self._ACTIVITY_GAIN
+        )
 
     def _update_scene_activity(self, frames: float):
-        """Track how much the colors change between frames (0=calm, 1=active)."""
+        """Track how much the colors change between frames
+        (0=calm, 1=active)."""
         if not self.box_colors:
             self.scene_activity *= self._ACTIVITY_IDLE_DECAY**frames
             return
 
-        total_delta = sum(
-            abs(c[0] - p[0]) + abs(c[1] - p[1]) + abs(c[2] - p[2])
-            for c, p in zip(self.box_colors, self.prev_box_colors)
-        )
-        activity = min(
-            1.0, total_delta / len(self.box_colors) * self._ACTIVITY_GAIN
-        )
-
         smooth = self._ACTIVITY_SMOOTH**frames
         self.scene_activity = (
-            smooth * self.scene_activity + (1.0 - smooth) * activity
+            smooth * self.scene_activity + (1.0 - smooth) * self._raw_activity
         )
-
-    @staticmethod
-    def _cosine_interp(a: float, b: float, t: float) -> float:
-        """Cosine interpolation — smoother than linear at the edges."""
-        ft = (1.0 - math.cos(t * math.pi)) * 0.5
-        return a * (1.0 - ft) + b * ft
 
     def _sample_color(self, pos: float) -> Rgb:
         """
@@ -208,8 +189,6 @@ class Ambilight(EffectBase):
         between neighbors using cosine interpolation.
         """
         num_boxes = len(self.box_colors)
-        if num_boxes == 0:
-            return (0.0, 0.0, 0.0)
         if num_boxes == 1:
             return self.box_colors[0]
 
@@ -226,10 +205,12 @@ class Ambilight(EffectBase):
         ra, ga, ba = self.box_colors[idx_a]
         rb, gb, bb = self.box_colors[idx_b]
 
+        # Cosine interpolation — smoother than linear at the edges
+        ft = (1.0 - math.cos(frac * math.pi)) * 0.5
         return (
-            self._cosine_interp(ra, rb, frac),
-            self._cosine_interp(ga, gb, frac),
-            self._cosine_interp(ba, bb, frac),
+            ra + (rb - ra) * ft,
+            ga + (gb - ga) * ft,
+            ba + (bb - ba) * ft,
         )
 
     def _boost_saturation(self, r: float, g: float, b: float) -> Rgb:
@@ -243,58 +224,64 @@ class Ambilight(EffectBase):
         )
 
     def _update_sparkles(self, dt: float):
-        decay = fade_factor(dt, self.sparkle_fade)
-        for i in range(self.led.count):
-            self.sparkle_buffer[i] *= decay
-
-        # Blend the spawn rate between constant and scene-reactive
-        reactive = 1.0 + self.scene_activity * self._ACTIVITY_SPARKLE_BOOST
+        # Scene activity boosts the spawn rate, scaled by how reactive
+        # the user wants sparkles to be
         rate = self.sparkle_rate * (
-            1.0 - self.sparkle_scene_reactive
-            + self.sparkle_scene_reactive * reactive
+            1.0
+            + self.sparkle_scene_reactive
+            * self.scene_activity
+            * self._ACTIVITY_SPARKLE_BOOST
         )
-
         spawn_chance = rate * dt
+        decay = fade_factor(dt, self.sparkle_fade)
+        intensity = min(1.0, self.sparkle_intensity)
+
         for i in range(self.led.count):
             if random.random() < spawn_chance:
-                self.sparkle_buffer[i] = min(1.0, self.sparkle_intensity)
+                self.sparkle_buffer[i] = intensity
+            else:
+                self.sparkle_buffer[i] *= decay
 
     def tick(self, dt: float):
-        n = self.led.count
-        frames = dt * self.TARGET_FPS
-
-        raw = self._drain_udp()
-        if raw is not None:
+        raw = self._udp.drain_latest()
+        if raw:
             new_boxes = self._parse_boxes(raw)
             if new_boxes:
                 self._smooth_boxes(new_boxes)
 
-        self._update_scene_activity(frames)
-
+        self._update_scene_activity(dt * self.TARGET_FPS)
         self.drift_t += self.drift_speed * dt
+
+        if not self.box_colors:
+            # No color data yet — stay dark instead of rendering per pixel
+            self.led.set_color((0, 0, 0))
+            return
 
         sparkle = self.sparkle_intensity > 0
         if sparkle:
             self._update_sparkles(dt)
 
+        n = self.led.count
+        span = max(n - 1, 1)
+        drift_phase = self.drift_t * 2.0 * math.pi
+        drifting = self.drift_amount > 0
+        bright = self.brightness
+
         buffer = []
         for i in range(n):
             # Base position along the strip (0.0 to 1.0)
-            base_pos = i / max(n - 1, 1)
+            pos = i / span
 
             # Sine-wave drift shifts the sampling point back and forth;
             # clamp so we don't sample outside the color field
-            drift_offset = (
-                math.sin(
-                    self.drift_t * 2.0 * math.pi
-                    + base_pos * self._DRIFT_SPATIAL_PHASE
+            if drifting:
+                offset = (
+                    math.sin(drift_phase + pos * self._DRIFT_SPATIAL_PHASE)
+                    * self.drift_amount
                 )
-                * self.drift_amount
-            )
-            shifted_pos = base_pos + drift_offset / max(n - 1, 1)
-            shifted_pos = max(0.0, min(1.0, shifted_pos))
+                pos = max(0.0, min(1.0, pos + offset / span))
 
-            r, g, b = self._sample_color(shifted_pos)
+            r, g, b = self._sample_color(pos)
             r, g, b = self._boost_saturation(r, g, b)
 
             # Additive sparkle overlay blends toward white
@@ -304,18 +291,9 @@ class Ambilight(EffectBase):
                 g += spark * (1.0 - g)
                 b += spark * (1.0 - b)
 
-            buffer.append(
-                (
-                    max(0, min(255, int(r * self.brightness * 255))),
-                    max(0, min(255, int(g * self.brightness * 255))),
-                    max(0, min(255, int(b * self.brightness * 255))),
-                )
-            )
+            buffer.append(to_rgb255(r * bright, g * bright, b * bright))
 
         self.led.set_pixels(buffer)
 
     def teardown(self):
-        try:
-            self._sock.close()
-        except OSError:
-            pass
+        self._udp.close()

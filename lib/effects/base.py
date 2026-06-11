@@ -30,6 +30,26 @@ def fade_factor(dt: float, fade_time: float, residual: float = 0.05) -> float:
     return residual ** (dt / fade_time)
 
 
+def scale_color(
+    color: tuple[int, int, int], factor: float
+) -> tuple[int, int, int]:
+    """Scale an RGB tuple by a 0.0-1.0 brightness factor."""
+    return (
+        int(color[0] * factor),
+        int(color[1] * factor),
+        int(color[2] * factor),
+    )
+
+
+def to_rgb255(r: float, g: float, b: float) -> tuple[int, int, int]:
+    """Convert 0.0-1.0 float channels to a clamped 0-255 int tuple."""
+    return (
+        max(0, min(255, int(r * 255))),
+        max(0, min(255, int(g * 255))),
+        max(0, min(255, int(b * 255))),
+    )
+
+
 class EffectBase(abc.ABC, threading.Thread):
     """Base class for animations. Override `tick()` (mandatory) and
     `teardown()` (optional, for releasing sockets/files).
@@ -53,6 +73,7 @@ class EffectBase(abc.ABC, threading.Thread):
         self.config = self._resolve_config(kwargs)
         for key, value in self.config.items():
             setattr(self, key, value)
+            
         self._stopped = threading.Event()
         self.start_time = datetime.datetime.now()
 
@@ -77,6 +98,7 @@ class EffectBase(abc.ABC, threading.Thread):
                 )
             value = overrides.get(name, spec["default"])
             coerce = _COERCERS.get(spec["type"])
+
             if coerce is not None:
                 try:
                     value = coerce(value)
@@ -85,7 +107,9 @@ class EffectBase(abc.ABC, threading.Thread):
                         f"{cls.__name__}: bad value for option "
                         f"{name!r}: {value!r}"
                     ) from e
+
             resolved[name] = value
+
         return resolved
 
     def run(self) -> None:
@@ -102,7 +126,7 @@ class EffectBase(abc.ABC, threading.Thread):
                 self.led.show()
                 wait = frame_time - (time.perf_counter() - loop_start)
                 if wait > 0 and self._stopped.wait(wait):
-                    break
+                    break 
         except Exception:
             logger.exception("Effect %s crashed", self.name)
         finally:
