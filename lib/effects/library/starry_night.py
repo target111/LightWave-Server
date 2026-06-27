@@ -1,3 +1,4 @@
+import colorsys
 import random
 
 from lib.effects.base import EffectBase, scale_color
@@ -6,7 +7,20 @@ from lib.effects.base import EffectBase, scale_color
 class StarryNight(EffectBase):
     """
     Randomly fades stars in and out smoothly.
+
+    Stars are multi-colored by default, drawn from a warm/cool star
+    palette tunable with `saturation` and `hue_shift`. Set `colorful`
+    false to fade a single `color` instead.
     """
+
+    PALETTE: list[tuple[int, int, int]] = [
+        (255, 255, 255),
+        (200, 200, 255),
+        (255, 240, 150),
+        (255, 200, 100),
+        (150, 150, 255),
+        (255, 180, 220),
+    ]
 
     CONFIG_SCHEMA = [
         {
@@ -18,20 +32,42 @@ class StarryNight(EffectBase):
         {
             "name": "fade_time",
             "type": "float",
-            "default": 0.85,
+            "default": 1.4,
             "description": "Seconds for a star to fade in (and out again)",
+        },
+        {
+            "name": "colorful",
+            "type": "bool",
+            "default": True,
+            "description": "Multi-colored stars; false uses a single color",
         },
         {
             "name": "color",
             "type": "color",
             "default": (255, 255, 255),
-            "description": "Star color",
+            "description": "Star color when colorful is off",
+        },
+        {
+            "name": "saturation",
+            "type": "float",
+            "default": 1.0,
+            "description": "Saturation multiplier for colorful stars "
+            "(0 = white, >1 = more vivid)",
+        },
+        {
+            "name": "hue_shift",
+            "type": "float",
+            "default": 0.0,
+            "description": "Degrees to rotate colorful star hues (0-360)",
         },
     ]
 
     density: float
     fade_time: float
+    colorful: bool
     color: tuple[int, int, int]
+    saturation: float
+    hue_shift: float
 
     # Per-pixel spawn probability per second at density=1.0
     _BASE_SPAWN_RATE = 0.4
@@ -45,9 +81,25 @@ class StarryNight(EffectBase):
         self.pixel_colors: list[tuple[int, int, int]] = [
             (0, 0, 0)
         ] * self.led.count
+        # Skip the HSV round-trip (and its rounding) when the palette is
+        # used as-is, so the default output matches the curated colors.
+        if self.saturation == 1.0 and self.hue_shift == 0.0:
+            self.palette = list(self.PALETTE)
+        else:
+            self.palette = [self._adjust(c) for c in self.PALETTE]
+
+    def _adjust(self, color: tuple[int, int, int]) -> tuple[int, int, int]:
+        """Apply hue_shift and saturation to a palette color."""
+        h, s, v = colorsys.rgb_to_hsv(*(c / 255.0 for c in color))
+        h = (h + self.hue_shift / 360.0) % 1.0
+        s = max(0.0, min(1.0, s * self.saturation))
+        r, g, b = colorsys.hsv_to_rgb(h, s, v)
+        return (int(r * 255), int(g * 255), int(b * 255))
 
     def _pick_color(self) -> tuple[int, int, int]:
-        """Color for a newly spawned star. Subclasses can override."""
+        """Color for a newly spawned star."""
+        if self.colorful:
+            return random.choice(self.palette)
         return self.color
 
     def tick(self, dt: float):

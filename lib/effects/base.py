@@ -15,10 +15,19 @@ def _coerce_color(value: Any) -> tuple[int, int, int]:
     return (int(r), int(g), int(b))
 
 
+def _coerce_bool(value: Any) -> bool:
+    # JSON delivers real booleans, but values also arrive as numbers or
+    # the string forms a form/query produces.
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return bool(value)
+
+
 _COERCERS: dict[str, Callable[[Any], Any]] = {
     "int": int,
     "float": float,
     "color": _coerce_color,
+    "bool": _coerce_bool,
 }
 
 
