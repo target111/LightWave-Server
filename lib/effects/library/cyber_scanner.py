@@ -1,4 +1,6 @@
-from lib.effects.base import EffectBase, fade_factor, scale_color
+from lib.effects import colors
+from lib.effects.anim import FadeBuffer
+from lib.effects.base import Color, EffectBase, option
 
 
 class CyberScanner(EffectBase):
@@ -6,59 +8,38 @@ class CyberScanner(EffectBase):
     A moving 'eye' that leaves a fading trail behind it.
     """
 
-    CONFIG_SCHEMA = [
-        {
-            "name": "eye_color",
-            "type": "color",
-            "default": (255, 0, 255),
-            "description": "Color of the eye",
-        },
-        {
-            "name": "trail_fade",
-            "type": "float",
-            "default": 1.6,
-            "description": "Seconds for the trail to fade out",
-        },
-        {
-            "name": "speed",
-            "type": "float",
-            "default": 1.0,
-            "description": "Speed multiplier (1.0 = 33 pixels/second)",
-        },
-    ]
-
-    eye_color: tuple[int, int, int]
-    trail_fade: float
-    speed: float
+    eye_color: Color = option((255, 0, 255), "Color of the eye")
+    trail_fade: float = option(
+        1.6, "Seconds for the trail to fade out", min=0.0
+    )
+    speed: float = option(
+        1.0, "Speed multiplier (1.0 = 33 pixels/second)", min=0.0
+    )
 
     _BASE_SPEED = 33.0  # pixels/second at speed=1.0
 
-    def __init__(self, led, **kwargs):
-        super().__init__(led, **kwargs)
-        self.heat = [0.0] * self.led.count
+    def setup(self):
+        self.trail = FadeBuffer(self.n, self.trail_fade)
         self.position = 0.0
         self.direction = 1
 
     def tick(self, dt: float):
-        # Fade out
-        decay = fade_factor(dt, self.trail_fade)
-        for i in range(self.led.count):
-            self.heat[i] = self.heat[i] * decay
+        self.trail.decay(dt)
 
         # Set head
         pos_idx = int(self.position)
-        if 0 <= pos_idx < self.led.count:
-            self.heat[pos_idx] = 1.0
+        if 0 <= pos_idx < self.n:
+            self.trail[pos_idx] = 1.0
 
         # Render
-        for i in range(self.led.count):
-            self.led.set_pixel(i, scale_color(self.eye_color, self.heat[i]))
+        for i, heat in enumerate(self.trail):
+            self.pixels[i] = colors.scale(self.eye_color, heat)
 
         # Move
         self.position += self.direction * self._BASE_SPEED * self.speed * dt
 
-        if self.position >= self.led.count - 1:
-            self.position = self.led.count - 1
+        if self.position >= self.n - 1:
+            self.position = self.n - 1
             self.direction = -1
         elif self.position <= 0:
             self.position = 0

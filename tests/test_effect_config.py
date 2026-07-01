@@ -1,9 +1,9 @@
-"""Effects resolve their options from CONFIG_SCHEMA in EffectBase:
-defaults applied, values coerced, attributes set."""
+"""Effects declare options with option(); EffectBase resolves them:
+defaults applied, values coerced, bounds checked, attributes set."""
 
 import pytest
 
-from lib.effects.base import EffectBase, fade_factor
+from lib.effects.base import EffectBase, option
 from lib.effects.library.candy_cane import CandyCane
 from lib.effects.registry import EffectRegistry
 
@@ -27,6 +27,20 @@ def test_bad_value_raises(led):
         CandyCane(led, stripe_width="not a number")
 
 
+def test_out_of_range_value_raises(led):
+    # stripe_width=0 used to reach tick() and divide by zero
+    with pytest.raises(ValueError, match="stripe_width"):
+        CandyCane(led, stripe_width=0)
+
+
+def test_bounds_appear_in_schema():
+    spec = next(
+        s for s in CandyCane.CONFIG_SCHEMA if s["name"] == "stripe_width"
+    )
+    assert spec["type"] == "int"
+    assert spec["min"] == 1
+
+
 def test_unknown_option_warns_but_works(led, caplog):
     effect = CandyCane(led, nonsense=1)
     assert effect.speed == 1.0
@@ -34,7 +48,7 @@ def test_unknown_option_warns_but_works(led, caplog):
 
 
 def _test_overrides(cls) -> dict:
-    """Effects with a `port` option bind a UDP socket in __init__;
+    """Effects with a `port` option bind a UDP socket in setup();
     port=0 picks a free port instead of the real one."""
     has_port = any(spec["name"] == "port" for spec in cls.CONFIG_SCHEMA)
     return {"port": 0} if has_port else {}
@@ -70,12 +84,12 @@ def test_schema_defaults_match_resolved_config(led):
             effect.teardown()
 
 
-def test_fade_factor_reaches_residual_after_fade_time():
-    value = 1.0
-    for _ in range(60):
-        value *= fade_factor(1 / 60, fade_time=1.0)
-    assert value == pytest.approx(0.05)
-    assert fade_factor(1 / 60, fade_time=0.0) == 0.0
+def test_tick_fills_frame_buffer(led, driver):
+    """Effects draw into self.pixels; the run loop pushes the buffer."""
+    effect = CandyCane(led)
+    effect.tick(1 / 60)
+    led.set_pixels(effect.pixels)
+    assert driver.snapshot()[0] == (255, 0, 0)
 
 
 def test_animation_speed_is_frame_rate_independent(led):
@@ -89,19 +103,36 @@ def test_animation_speed_is_frame_rate_independent(led):
     assert slow.offset == pytest.approx(fast.offset)
 
 
-def test_option_clashing_with_thread_attribute_is_rejected(led):
-    class BadEffect(EffectBase):
-        CONFIG_SCHEMA = [
-            {
-                "name": "name",
-                "type": "float",
-                "default": 1.0,
-                "description": "clashes with threading.Thread.name",
-            }
-        ]
-
-        def tick(self, dt):
-            pass
-
+def test_option_clashing_with_thread_attribute_is_rejected():
     with pytest.raises(ValueError, match="clashes"):
-        BadEffect(led)
+
+        class BadEffect(EffectBase):
+            # The clash with threading.Thread.name is the point here
+            name: float = option(  # pyright: ignore[reportIncompatibleVariableOverride]
+                1.0, "clashes with threading.Thread.name"
+            )
+
+            def tick(self, dt):
+                pass
+
+
+def test_option_without_annotation_is_rejected():
+    with pytest.raises(TypeError, match="annotation"):
+
+        class BadEffect(EffectBase):
+            speed = option(1.0, "missing the type annotation")
+
+            def tick(self, dt):
+                pass
+
+
+def test_handwritten_config_schema_is_rejected():
+    with pytest.raises(TypeError, match="CONFIG_SCHEMA"):
+
+        class OldStyleEffect(EffectBase):
+            CONFIG_SCHEMA = [
+                {"name": "speed", "type": "float", "default": 1.0}
+            ]
+
+            def tick(self, dt):
+                pass

@@ -3,7 +3,9 @@ import math
 import random
 from collections.abc import Sequence
 
-from lib.effects.base import EffectBase, fade_factor, to_rgb255
+from lib.effects.anim import fade_factor
+from lib.effects.base import EffectBase, option
+from lib.effects.colors import to_rgb255
 from lib.effects.udp import UdpFloatListener
 
 Rgb = tuple[float, float, float]
@@ -19,100 +21,48 @@ class Ambilight(EffectBase):
     # Send packed little-endian float32 RGB triplets:
     # [R0,G0,B0, R1,G1,B1, ...] (0.0-1.0).
 
-    CONFIG_SCHEMA = [
-        {
-            "name": "port",
-            "type": "int",
-            "default": 5556,
-            "description": "UDP port to listen on",
-        },
-        {
-            "name": "smoothing",
-            "type": "float",
-            "default": 0.6,
-            "description": (
-                "Temporal smoothing (0.0 = instant, 0.99 = molasses)"
-            ),
-        },
-        {
-            "name": "drift_amount",
-            "type": "float",
-            "default": 3.0,
-            "description": "Max sine-wave color drift in pixels (0 = disabled)",
-        },
-        {
-            "name": "drift_speed",
-            "type": "float",
-            "default": 0.3,
-            "description": "Drift oscillations per second",
-        },
-        {
-            "name": "sparkle_intensity",
-            "type": "float",
-            "default": 0.0,
-            "description": "Sparkle brightness (0.0 = off, 1.0 = full white)",
-        },
-        {
-            "name": "sparkle_rate",
-            "type": "float",
-            "default": 0.6,
-            "description": "Average sparkles spawned per pixel per second",
-        },
-        {
-            "name": "sparkle_scene_reactive",
-            "type": "float",
-            "default": 0.5,
-            "description": (
-                "How much scene activity boosts sparkles "
-                "(0.0 = constant, 1.0 = fully reactive)"
-            ),
-        },
-        {
-            "name": "sparkle_fade",
-            "type": "float",
-            "default": 0.4,
-            "description": "Seconds for sparkles to fade out",
-        },
-        {
-            "name": "saturation_boost",
-            "type": "float",
-            "default": 1.2,
-            "description": "Multiplier for color saturation (1.0 = unchanged)",
-        },
-        {
-            "name": "brightness",
-            "type": "float",
-            "default": 1.0,
-            "description": "Overall brightness multiplier",
-        },
-        {
-            "name": "silence_timeout",
-            "type": "float",
-            "default": 2.0,
-            "description": (
-                "Seconds without UDP data before easing into the rest animation"
-            ),
-        },
-        {
-            "name": "rest_brightness",
-            "type": "float",
-            "default": 0.12,
-            "description": "Peak brightness of the idle rest animation",
-        },
-    ]
-
-    port: int
-    smoothing: float
-    drift_amount: float
-    drift_speed: float
-    sparkle_intensity: float
-    sparkle_rate: float
-    sparkle_scene_reactive: float
-    sparkle_fade: float
-    saturation_boost: float
-    brightness: float
-    silence_timeout: float
-    rest_brightness: float
+    port: int = option(5556, "UDP port to listen on", min=0, max=65535)
+    smoothing: float = option(
+        0.6,
+        "Temporal smoothing (0.0 = instant, 0.99 = molasses)",
+        min=0.0,
+        max=0.99,
+    )
+    drift_amount: float = option(
+        3.0, "Max sine-wave color drift in pixels (0 = disabled)", min=0.0
+    )
+    drift_speed: float = option(0.3, "Drift oscillations per second", min=0.0)
+    sparkle_intensity: float = option(
+        0.0,
+        "Sparkle brightness (0.0 = off, 1.0 = full white)",
+        min=0.0,
+        max=1.0,
+    )
+    sparkle_rate: float = option(
+        0.6, "Average sparkles spawned per pixel per second", min=0.0
+    )
+    sparkle_scene_reactive: float = option(
+        0.5,
+        "How much scene activity boosts sparkles "
+        "(0.0 = constant, 1.0 = fully reactive)",
+        min=0.0,
+        max=1.0,
+    )
+    sparkle_fade: float = option(
+        0.4, "Seconds for sparkles to fade out", min=0.0
+    )
+    saturation_boost: float = option(
+        1.2, "Multiplier for color saturation (1.0 = unchanged)", min=0.0
+    )
+    brightness: float = option(1.0, "Overall brightness multiplier", min=0.0)
+    silence_timeout: float = option(
+        2.0,
+        "Seconds without UDP data before easing into the rest animation",
+        min=0.0,
+    )
+    rest_brightness: float = option(
+        0.12, "Peak brightness of the idle rest animation", min=0.0, max=1.0
+    )
 
     # Scene-activity signal: per-box color delta scaled to a 0-1 range,
     # then smoothed with a per-frame EMA tuned at TARGET_FPS.
@@ -137,11 +87,7 @@ class Ambilight(EffectBase):
     _REST_WAVE_A = (3.0, 0.5)  # (spatial frequency, phase per second)
     _REST_WAVE_B = (5.0, -0.33)
 
-    def __init__(self, led, **kwargs):
-        super().__init__(led, **kwargs)
-
-        n = self.led.count
-
+    def setup(self):
         # -- box state (populated on first UDP packet) --
         self.box_colors: list[Rgb] = []
 
@@ -149,7 +95,7 @@ class Ambilight(EffectBase):
         self.drift_t = 0.0
 
         # -- sparkle state --
-        self.sparkle_buffer = [0.0] * n
+        self.sparkle_buffer = [0.0] * self.n
         self.scene_activity = 0.0  # 0.0 = calm, 1.0 = very active
         self._raw_activity = 0.0  # per-packet color delta, pre-smoothing
 
@@ -288,15 +234,14 @@ class Ambilight(EffectBase):
 
     def _render_rest(self):
         """Draw a pure rest frame (no live color data blended in)."""
-        n = self.led.count
-        span = max(n - 1, 1)
+        span = max(self.n - 1, 1)
         bright = self.brightness
-        self.led.set_pixels(
-            [
-                to_rgb255(r * bright, g * bright, b * bright)
-                for r, g, b in (self._rest_color(i / span) for i in range(n))
-            ]
-        )
+        self.pixels = [
+            to_rgb255(r * bright, g * bright, b * bright)
+            for r, g, b in (
+                self._rest_color(i / span) for i in range(self.n)
+            )
+        ]
 
     def _update_sparkles(self, dt: float):
         # Scene activity boosts the spawn rate, scaled by how reactive
@@ -311,7 +256,7 @@ class Ambilight(EffectBase):
         decay = fade_factor(dt, self.sparkle_fade)
         intensity = min(1.0, self.sparkle_intensity)
 
-        for i in range(self.led.count):
+        for i in range(self.n):
             if random.random() < spawn_chance:
                 self.sparkle_buffer[i] = intensity
             else:
@@ -342,7 +287,7 @@ class Ambilight(EffectBase):
         if self.rest_blend >= 1.0 or not self.box_colors:
             # Stale sparkles shouldn't pop back in when the stream resumes
             if any(self.sparkle_buffer):
-                self.sparkle_buffer = [0.0] * self.led.count
+                self.sparkle_buffer = [0.0] * self.n
             self._render_rest()
             return
 
@@ -350,15 +295,14 @@ class Ambilight(EffectBase):
         if sparkle:
             self._update_sparkles(dt)
 
-        n = self.led.count
-        span = max(n - 1, 1)
+        span = max(self.n - 1, 1)
         drifting = self.drift_amount > 0
         drift_phase = self.drift_t * 2.0 * math.pi if drifting else 0.0
         bright = self.brightness
         rest = self.rest_blend
 
         buffer = []
-        for i in range(n):
+        for i in range(self.n):
             # Base position along the strip (0.0 to 1.0)
             frac = i / span
             pos = frac
@@ -391,7 +335,7 @@ class Ambilight(EffectBase):
 
             buffer.append(to_rgb255(r * bright, g * bright, b * bright))
 
-        self.led.set_pixels(buffer)
+        self.pixels = buffer
 
     def teardown(self):
         self._udp.close()

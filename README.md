@@ -63,41 +63,51 @@ curl -X POST http://localhost:8000/leds/color/set \
 
 ## Writing an effect
 
-Drop a class into `lib/effects/library/` — it is discovered automatically. Options
-declared in `CONFIG_SCHEMA` are validated, coerced, and set as attributes.
+Drop a class into `lib/effects/library/` — it is discovered automatically
+(files starting with `_` are skipped; copy `_template.py` to get started).
+
+```python
+from lib.effects.base import Color, EffectBase, option
+
+
+class Blink(EffectBase):
+    """Shows up as the effect description in the API."""
+
+    color: Color = option((255, 0, 0), "Blink color")
+    period: float = option(1.0, "Seconds per on/off phase", min=0.05)
+
+    def setup(self):
+        self.elapsed = 0.0
+
+    def tick(self, dt: float):
+        # Called in a 60 FPS loop; dt is the elapsed time in seconds.
+        self.elapsed += dt
+        on = int(self.elapsed / self.period) % 2 == 0
+        self.fill(self.color if on else (0, 0, 0))
+```
+
+- **Options** are one `option(default, description, min=..., max=...)` line
+  each; the type comes from the annotation (`int`, `float`, `bool`, `Color`).
+  API values are coerced, bounds-checked, and set as attributes, so the
+  effect just reads `self.period`.
+- **State** goes in `setup()` — no `__init__` boilerplate.
+- **Drawing** means writing `(r, g, b)` tuples into `self.pixels` (or
+  `self.fill(color)` / `self.clear()`); the loop pushes the buffer to the
+  hardware after every `tick()`. The buffer persists between frames.
+- **Helpers**: `lib.effects.colors` (`hsv`, `lerp`, `scale`, `wheel`,
+  `Gradient`) and `lib.effects.anim` (`fade_factor`, `wrap`, `Spawner`,
+  `FadeBuffer`) cover the common color math and motion patterns.
 
 Option conventions: times in seconds, sizes in pixels, rates per second,
 probabilities 0.0–1.0. Unitless knobs (speed, density, …) are multipliers
 where `1.0` is the designed look; keep the tuned base value inside the
 effect as a named constant.
 
-```python
-from lib.effects.base import EffectBase
+Preview any effect in the terminal, no hardware needed:
 
-
-class Blink(EffectBase):
-    """Shows up as the effect description in the API."""
-
-    CONFIG_SCHEMA = [
-        {
-            "name": "color",
-            "type": "color",  # int | float | color
-            "default": (255, 0, 0),
-            "description": "Blink color",
-        },
-    ]
-
-    color: tuple[int, int, int]
-
-    def __init__(self, led, **kwargs):
-        super().__init__(led, **kwargs)
-        self.elapsed = 0.0
-
-    def tick(self, dt: float):
-        # Called in a 60 FPS loop; dt is the elapsed time in seconds.
-        self.elapsed += dt
-        on = int(self.elapsed) % 2 == 0
-        self.led.set_color(self.color if on else (0, 0, 0))
+```bash
+uv run python -m lib.effects.preview            # list effects
+uv run python -m lib.effects.preview Fire cooling=1.3
 ```
 
 ## Development

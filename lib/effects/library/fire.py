@@ -1,6 +1,7 @@
 import random
 
-from lib.effects.base import EffectBase
+from lib.effects.base import EffectBase, option
+from lib.effects.colors import Gradient
 
 
 class Fire(EffectBase):
@@ -8,53 +9,38 @@ class Fire(EffectBase):
     Simulates fire rising up the LED strip.
     """
 
-    CONFIG_SCHEMA = [
-        {
-            "name": "cooling",
-            "type": "float",
-            "default": 1.0,
-            "description": "Cooling rate multiplier (higher = shorter flames)",
-        },
-        {
-            "name": "sparking",
-            "type": "float",
-            "default": 0.47,
-            "description": "Chance of a spark igniting per update (0.0-1.0)",
-        },
-    ]
-
-    cooling: float
-    sparking: float
+    cooling: float = option(
+        1.0, "Cooling rate multiplier (higher = shorter flames)", min=0.0
+    )
+    sparking: float = option(
+        0.47,
+        "Chance of a spark igniting per update (0.0-1.0)",
+        min=0.0,
+        max=1.0,
+    )
 
     # The simulation was tuned at ~30 FPS and is step-sensitive, so run
     # the loop at that rate instead of scaling the math per tick.
     TARGET_FPS = 33
 
     _BASE_COOLING = 55  # heat units shed per update at cooling=1.0
+    _PALETTE = Gradient(
+        (0, 0, 0), (255, 0, 0), (255, 255, 0), (255, 255, 255)
+    )
 
-    def __init__(self, led, **kwargs):
-        super().__init__(led, **kwargs)
-        self.heat = [0] * self.led.count
-
-        self.palette = []
-        for i in range(256):
-            if i < 85:
-                self.palette.append((i * 3, 0, 0))
-            elif i < 170:
-                self.palette.append((255, (i - 85) * 3, 0))
-            else:
-                self.palette.append((255, 255, (i - 170) * 3))
+    def setup(self):
+        self.heat = [0] * self.n
 
     def tick(self, dt: float):
         # Step 1: Cool down
         cooling = int(self._BASE_COOLING * self.cooling)
-        max_cooldown = ((cooling * 10) // self.led.count) + 2
-        for i in range(self.led.count):
+        max_cooldown = ((cooling * 10) // self.n) + 2
+        for i in range(self.n):
             cooldown = random.randint(0, max_cooldown)
             self.heat[i] = max(0, self.heat[i] - cooldown)
 
         # Step 2: Drift
-        for i in range(self.led.count - 1, 1, -1):
+        for i in range(self.n - 1, 1, -1):
             self.heat[i] = (
                 self.heat[i - 1] + self.heat[i - 2] + self.heat[i - 2]
             ) // 3
@@ -65,6 +51,5 @@ class Fire(EffectBase):
             self.heat[y] = min(255, self.heat[y] + random.randint(160, 255))
 
         # Step 4: Map to color
-        for i in range(self.led.count):
-            color_index = min(self.heat[i], 255)
-            self.led.set_pixel(i, self.palette[color_index])
+        for i in range(self.n):
+            self.pixels[i] = self._PALETTE.sample(self.heat[i] / 255)

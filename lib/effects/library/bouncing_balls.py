@@ -1,4 +1,4 @@
-from lib.effects.base import EffectBase
+from lib.effects.base import EffectBase, option
 
 
 class BouncingBalls(EffectBase):
@@ -6,35 +6,17 @@ class BouncingBalls(EffectBase):
     Simulates multi-colored balls bouncing under gravity.
     """
 
-    CONFIG_SCHEMA = [
-        {
-            "name": "ball_count",
-            "type": "int",
-            "default": 3,
-            "description": "Number of balls",
-        },
-        {
-            "name": "gravity",
-            "type": "float",
-            "default": 1.0,
-            "description": "Gravity strength multiplier (1.0 = normal)",
-        },
-        {
-            "name": "dampening",
-            "type": "float",
-            "default": 0.90,
-            "description": "Bounce dampening (0.0-1.0)",
-        },
-    ]
-
-    ball_count: int
-    gravity: float
-    dampening: float
+    ball_count: int = option(3, "Number of balls", min=1)
+    gravity: float = option(
+        1.0, "Gravity strength multiplier (1.0 = normal)", min=0.0
+    )
+    dampening: float = option(
+        0.90, "Bounce dampening (0.0-1.0)", min=0.0, max=1.0
+    )
 
     _BASE_GRAVITY = -5.81  # strip-heights/second² at gravity=1.0
 
-    def __init__(self, led, **kwargs):
-        super().__init__(led, **kwargs)
+    def setup(self):
         self._g = self._BASE_GRAVITY * self.gravity
         self.start_height = 1
         self.colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
@@ -46,7 +28,7 @@ class BouncingBalls(EffectBase):
         self.heights = [self.start_height] * self.ball_count
 
     def tick(self, dt: float):
-        self.led.clear()
+        self.clear()
 
         for i in range(self.ball_count):
             self.elapsed[i] += dt
@@ -74,7 +56,7 @@ class BouncingBalls(EffectBase):
                     self.velocities[i] = 0
                     self.elapsed[i] = -1.0
 
-            position = int(h * (self.led.count - 1))
+            position = int(h * (self.n - 1))
 
-            if 0 <= position < self.led.count:
-                self.led.set_pixel(position, self.colors[i % len(self.colors)])
+            if 0 <= position < self.n:
+                self.pixels[position] = self.colors[i % len(self.colors)]

@@ -1,6 +1,7 @@
 import math
 
-from lib.effects.base import EffectBase
+from lib.effects import colors
+from lib.effects.base import Color, EffectBase, option
 
 
 class ChristmasBreath(EffectBase):
@@ -8,40 +9,14 @@ class ChristmasBreath(EffectBase):
     Smoothly fades the entire strip between two colors (default Red/Green).
     """
 
-    CONFIG_SCHEMA = [
-        {
-            "name": "period",
-            "type": "float",
-            "default": 4.0,
-            "description": "Seconds for one full breath cycle",
-        },
-        {
-            "name": "color1",
-            "type": "color",
-            "default": (255, 0, 0),
-            "description": "First color",
-        },
-        {
-            "name": "color2",
-            "type": "color",
-            "default": (0, 255, 0),
-            "description": "Second color",
-        },
-    ]
+    period: float = option(4.0, "Seconds for one full breath cycle", min=0.1)
+    color1: Color = option((255, 0, 0), "First color")
+    color2: Color = option((0, 255, 0), "Second color")
 
-    period: float
-    color1: tuple[int, int, int]
-    color2: tuple[int, int, int]
-
-    def __init__(self, led, **kwargs):
-        super().__init__(led, **kwargs)
+    def setup(self):
         self.elapsed = 0.0
 
     def tick(self, dt: float):
         self.elapsed += dt
         phase = (math.sin(self.elapsed * 2 * math.pi / self.period) + 1) / 2
-
-        r = int(self.color1[0] * phase + self.color2[0] * (1 - phase))
-        g = int(self.color1[1] * phase + self.color2[1] * (1 - phase))
-        b = int(self.color1[2] * phase + self.color2[2] * (1 - phase))
-        self.led.set_color((r, g, b))
+        self.fill(colors.lerp(self.color2, self.color1, phase))

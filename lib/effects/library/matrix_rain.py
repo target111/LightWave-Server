@@ -1,6 +1,8 @@
 import random
 
-from lib.effects.base import EffectBase, scale_color
+from lib.effects import colors
+from lib.effects.anim import Spawner
+from lib.effects.base import Color, EffectBase, option
 
 
 class MatrixRain(EffectBase):
@@ -8,76 +10,47 @@ class MatrixRain(EffectBase):
     Green 'code' drops that are guaranteed to reach the bottom of the strip.
     """
 
-    CONFIG_SCHEMA = [
-        {
-            "name": "spawn_rate",
-            "type": "float",
-            "default": 2.5,
-            "description": "New drops per second",
-        },
-        {
-            "name": "trail_length",
-            "type": "int",
-            "default": 20,
-            "description": "Length of the drop trail",
-        },
-        {
-            "name": "head_color",
-            "type": "color",
-            "default": (180, 255, 180),
-            "description": "Color of the drop head",
-        },
-        {
-            "name": "tail_color",
-            "type": "color",
-            "default": (0, 255, 0),
-            "description": "Color of the drop trail",
-        },
-    ]
-
-    spawn_rate: float
-    trail_length: int
-    head_color: tuple[int, int, int]
-    tail_color: tuple[int, int, int]
+    spawn_rate: float = option(2.5, "New drops per second", min=0.0)
+    trail_length: int = option(20, "Length of the drop trail", min=1)
+    head_color: Color = option((180, 255, 180), "Color of the drop head")
+    tail_color: Color = option((0, 255, 0), "Color of the drop trail")
 
     _MIN_SPEED = 10.0  # drop fall speed range in pixels/second
     _MAX_SPEED = 40.0
 
-    def __init__(self, led, **kwargs):
-        super().__init__(led, **kwargs)
-        self.drops = []
+    def setup(self):
+        self.drops: list[list[float]] = []
+        self.spawner = Spawner(self.spawn_rate)
 
     def tick(self, dt: float):
-        # Spawn
-        if random.random() < self.spawn_rate * dt:
+        for _ in range(self.spawner.poll(dt)):
             speed = random.uniform(self._MIN_SPEED, self._MAX_SPEED)
             self.drops.append([0.0, speed])
 
-        pixel_buffer = {}
+        intensities: dict[int, float] = {}
         active_drops = []
 
-        for drop in self.drops:
-            pos, speed = drop
+        for pos, speed in self.drops:
             pos += speed * dt
 
             head_pixel = int(pos)
 
-            if head_pixel - self.trail_length < self.led.count:
+            if head_pixel - self.trail_length < self.n:
                 active_drops.append([pos, speed])
 
                 for i in range(self.trail_length):
                     pixel_index = head_pixel - i
-                    if 0 <= pixel_index < self.led.count:
+                    if 0 <= pixel_index < self.n:
                         intensity = 1.0 - (i / self.trail_length)
-                        current_val = pixel_buffer.get(pixel_index, 0.0)
-                        pixel_buffer[pixel_index] = max(current_val, intensity)
+                        current_val = intensities.get(pixel_index, 0.0)
+                        intensities[pixel_index] = max(current_val, intensity)
 
         self.drops = active_drops
 
-        for i in range(self.led.count):
-            if i in pixel_buffer:
-                intensity = pixel_buffer[i]
+        for i in range(self.n):
+            intensity = intensities.get(i, 0.0)
+            if intensity > 0.0:
                 color = self.head_color if intensity > 0.9 else self.tail_color
-                self.led.set_pixel(i, scale_color(color, intensity))
+                self.pixels[i] = colors.scale(color, intensity)
             else:
-                self.led.set_pixel(i, (0, 0, 0))
+                self.pixels[i] = (0, 0, 0)
