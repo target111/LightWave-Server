@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#08090c" />
+<title>LightWave</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="logo.svg" alt="LightWave logo" class="brand-logo" />
+    <h1 class="brand-name">LIGHT<span>WAVE</span></h1>
+  </div>
+  <div class="link-status" id="link-status" data-state="connecting">
+    <span class="link-dot"></span>
+    <span class="link-label" id="link-label">LINKING…</span>
+  </div>
+</header>
+
+<main class="panel">
+
+  <!-- Live strip -->
+  <section class="strip-section">
+    <div class="section-head">
+      <h2 class="section-title">LIVE STRIP</h2>
+      <span class="mono-tag" id="strip-meta">— LEDS</span>
+    </div>
+    <div class="strip-frame">
+      <canvas id="strip-glow" width="300" height="1"></canvas>
+      <canvas id="strip" width="300" height="1"></canvas>
+    </div>
+    <div class="strip-readout">
+      <span class="mono-tag">BRIGHTNESS <b id="strip-brightness">—</b></span>
+      <span class="mono-tag" id="strip-fps">0 FPS</span>
+    </div>
+  </section>
+
+  <!-- Now playing -->
+  <section class="now-playing" id="now-playing" hidden>
+    <div class="np-pulse"></div>
+    <div class="np-info">
+      <span class="np-label">RUNNING</span>
+      <span class="np-name" id="np-name">—</span>
+      <span class="np-elapsed mono-tag" id="np-elapsed">00:00</span>
+    </div>
+    <button class="btn btn-stop" id="btn-stop">STOP</button>
+  </section>
+
+  <div class="columns">
+
+    <!-- Presets -->
+    <section class="card">
+      <div class="section-head">
+        <h2 class="section-title">PRESETS</h2>
+        <span class="mono-tag" id="preset-count"></span>
+      </div>
+      <div class="preset-grid" id="preset-grid">
+        <div class="empty-note" id="preset-loading">loading presets…</div>
+      </div>
+
+      <div class="preset-config" id="preset-config" hidden>
+        <div class="section-head">
+          <h3 class="section-title accent" id="config-title">—</h3>
+          <button class="btn-ghost" id="config-close" aria-label="Close options">✕</button>
+        </div>
+        <p class="config-desc" id="config-desc"></p>
+        <form id="config-form" class="config-form"></form>
+        <button class="btn btn-start" id="btn-start">START</button>
+      </div>
+    </section>
+
+    <!-- Manual controls -->
+    <section class="card" id="manual-card">
+      <div class="section-head">
+        <h2 class="section-title">MANUAL</h2>
+        <span class="mono-tag warn" id="manual-lock" hidden>LOCKED — PRESET RUNNING</span>
+      </div>
+
+      <div class="manual-body" id="manual-body">
+        <div class="control-row">
+          <label class="control-label" for="color-input">COLOR</label>
+          <div class="color-line">
+            <input type="color" id="color-input" value="#20d5ff" />
+            <span class="mono-tag" id="color-hex">#20D5FF</span>
+            <button class="btn btn-apply" id="btn-color">SET</button>
+          </div>
+          <div class="swatches" id="swatches"></div>
+        </div>
+
+        <div class="control-row">
+          <label class="control-label" for="brightness">BRIGHTNESS <b id="brightness-val">100%</b></label>
+          <input type="range" id="brightness" min="0" max="100" value="100" />
+        </div>
+
+        <div class="control-row">
+          <button class="btn btn-clear" id="btn-clear">CLEAR STRIP</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <span class="mono-tag">LIGHTWAVE · <a href="/docs">API DOCS</a></span>
+</footer>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

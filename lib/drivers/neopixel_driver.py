@@ -32,6 +32,9 @@ class NeoPixelDriver:
     def show(self) -> None:
         self._pixels.show()
 
+    def snapshot(self) -> list[Color]:
+        return [tuple(px) for px in self._pixels]
+
     def close(self) -> None:
         try:
             self._pixels.deinit()
