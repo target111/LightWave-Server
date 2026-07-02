@@ -11,7 +11,6 @@ const els = {
   strip: $("strip"),
   stripGlow: $("strip-glow"),
   stripMeta: $("strip-meta"),
-  stripBrightness: $("strip-brightness"),
   stripFps: $("strip-fps"),
   nowPlaying: $("now-playing"),
   npName: $("np-name"),
@@ -111,7 +110,14 @@ function renderStrip(pixels, brightness) {
     c.drawImage(offscreen, 0, 0, c.canvas.width, c.canvas.height);
   }
 
-  els.stripBrightness.textContent = `${Math.round(brightness * 100)}%`;
+  // The server owns brightness (a preset start resets it to 100%, and
+  // another device may change it) — follow it unless the user is
+  // interacting with the slider right now.
+  if (document.activeElement !== els.brightness) {
+    const pct = Math.round(brightness * 100);
+    els.brightness.value = pct;
+    els.brightnessVal.textContent = `${pct}%`;
+  }
   frameCount++;
 }
 

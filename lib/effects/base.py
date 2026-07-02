@@ -170,6 +170,10 @@ class EffectBase(abc.ABC, threading.Thread):
 
         self.pixels: list[Color] = [(0, 0, 0)] * self.n
         self._stopped = threading.Event()
+        self._finished = False
+        # Fired from this thread when run() exits for any reason
+        # (stopped, finished, crashed). Must be cheap and thread-safe.
+        self.on_finished: Callable[[], None] | None = None
         self.start_time = datetime.datetime.now()
         self.setup()
 
@@ -240,6 +244,12 @@ class EffectBase(abc.ABC, threading.Thread):
                 self.teardown()
             except Exception:
                 logger.exception("Teardown of %s failed", self.name)
+            # Set before firing the callback: is_alive() stays true until
+            # the thread fully exits, so observers woken by on_finished
+            # need `finished` to already reflect this exit.
+            self._finished = True
+            if self.on_finished is not None:
+                self.on_finished()
 
     def setup(self) -> None:
         """Initialize effect state. Options are already resolved."""
@@ -258,3 +268,8 @@ class EffectBase(abc.ABC, threading.Thread):
     @property
     def is_stopped(self) -> bool:
         return self._stopped.is_set()
+
+    @property
+    def finished(self) -> bool:
+        """True once run() has exited (stopped, finished, or crashed)."""
+        return self._finished

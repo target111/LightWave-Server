@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import Callable, Optional
 
 from lib.drivers.controller import LEDController
 from lib.effects.base import EffectBase
@@ -29,6 +29,16 @@ class EffectService:
         self._registry = registry
         self._running: Optional[EffectBase] = None
         self._lock = asyncio.Lock()
+        # Called after the running effect changes: started, stopped, or
+        # the effect thread exited on its own (finished/crashed). Must be
+        # cheap and thread-safe — self-termination fires it from the
+        # effect thread.
+        self.on_state_change: Optional[Callable[[], None]] = None
+
+    def _notify_state(self) -> None:
+        cb = self.on_state_change
+        if cb is not None:
+            cb()
 
     @property
     def controller(self) -> LEDController:
@@ -40,10 +50,11 @@ class EffectService:
 
     @property
     def running(self) -> Optional[EffectBase]:
-        """The live effect, or None. An effect whose thread has exited
-        (finished or crashed) counts as not running."""
+        """The live effect, or None. An effect whose run() has exited
+        (finished or crashed) counts as not running — checked via
+        `finished`, which flips before the thread is fully dead."""
         eff = self._running
-        if eff is not None and eff.is_alive():
+        if eff is not None and not eff.finished and eff.is_alive():
             return eff
         return None
 
@@ -67,8 +78,10 @@ class EffectService:
             except Exception as e:
                 logger.exception("Failed to construct effect %s", name)
                 raise EffectStartError(str(e)) from e
+            effect.on_finished = self._notify_state
             effect.start()
             self._running = effect
+            self._notify_state()
             logger.info("Started effect %s with args=%s", name, args)
             return effect
 

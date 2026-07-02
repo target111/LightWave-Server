@@ -15,9 +15,10 @@ class FrameBroadcaster:
     """Fans out LED state to websocket clients.
 
     Effect threads and API handlers call `notify()` (cheap and
-    thread-safe) via `LEDController.on_change`; an asyncio task coalesces
-    those wake-ups, snapshots the controller, and pushes one frame to
-    every client, throttled to `fps`.
+    thread-safe) via `LEDController.on_change` (pixel writes) and
+    `EffectService.on_state_change` (preset started/stopped/died); an
+    asyncio task coalesces those wake-ups, snapshots the controller, and
+    pushes one frame to every client, throttled to `fps`.
 
     Wire protocol: pixel frames are binary — one brightness byte
     (0-255) followed by 3 bytes (RGB) per LED. The running preset is
@@ -36,9 +37,11 @@ class FrameBroadcaster:
         self._loop = asyncio.get_running_loop()
         self._task = self._loop.create_task(self._run())
         self._service.controller.on_change = self.notify
+        self._service.on_state_change = self.notify
 
     async def stop(self) -> None:
         self._service.controller.on_change = None
+        self._service.on_state_change = None
         if self._task is not None:
             self._task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -74,28 +77,28 @@ class FrameBroadcaster:
         frame_time = 1.0 / self._fps
         last_running = self._service.running_name
         while True:
-            try:
-                await asyncio.wait_for(self._dirty.wait(), timeout=1.0)
-                dirty = True
-            except TimeoutError:
-                # No pixel writes — but an effect may still have finished
-                # or crashed without touching the strip, so fall through
-                # to the status check below.
-                dirty = False
+            await self._dirty.wait()
             self._dirty.clear()
 
-            running = self._service.running_name
-            if running != last_running:
-                last_running = running
-                await self._send_all(self._status())
-            if dirty and self._clients:
-                await self._send_all(self._frame())
-            if dirty:
-                await asyncio.sleep(frame_time)
+            try:
+                running = self._service.running_name
+                if running != last_running:
+                    last_running = running
+                    await self._send_all(self._status())
+                if self._clients:
+                    await self._send_all(self._frame())
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # A bad frame must not kill broadcasting for everyone.
+                logger.exception("frame broadcast failed")
+            await asyncio.sleep(frame_time)
 
     async def _send_all(self, message: dict | bytes) -> None:
         dead = []
-        for ws in self._clients:
+        # Snapshot: each send awaits, and a client connecting or
+        # disconnecting meanwhile would mutate the set mid-iteration.
+        for ws in tuple(self._clients):
             try:
                 if isinstance(message, bytes):
                     await ws.send_bytes(message)
