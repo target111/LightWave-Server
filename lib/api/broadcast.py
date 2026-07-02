@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+from itertools import chain
 from typing import Optional
 
 from fastapi import WebSocket
@@ -16,16 +17,15 @@ class FrameBroadcaster:
     Effect threads and API handlers call `notify()` (cheap and
     thread-safe) via `LEDController.on_change`; an asyncio task coalesces
     those wake-ups, snapshots the controller, and pushes one frame to
-    every client, throttled to `FPS`.
+    every client, throttled to `fps`.
 
     Wire protocol: pixel frames are binary — one brightness byte
     (0-255) followed by 3 bytes (RGB) per LED. The running preset is
     sent as a JSON text message, only on connect and when it changes."""
 
-    FPS = 30
-
-    def __init__(self, service: EffectService):
+    def __init__(self, service: EffectService, fps: int = 30):
         self._service = service
+        self._fps = fps
         self._clients: set[WebSocket] = set()
         self._dirty = asyncio.Event()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -63,30 +63,16 @@ class FrameBroadcaster:
     def disconnect(self, websocket: WebSocket) -> None:
         self._clients.discard(websocket)
 
-    def _running_name(self) -> Optional[str]:
-        running = self._service.running
-        if running is not None and running.is_alive():
-            return running.__class__.__name__
-        return None
-
     def _status(self) -> dict:
-        return {"type": "status", "running": self._running_name()}
+        return {"type": "status", "running": self._service.running_name}
 
     def _frame(self) -> bytes:
         pixels, brightness = self._service.controller.snapshot()
-        frame = bytearray(1 + 3 * len(pixels))
-        frame[0] = max(0, min(255, round(brightness * 255)))
-        i = 1
-        for r, g, b in pixels:
-            frame[i] = max(0, min(255, r))
-            frame[i + 1] = max(0, min(255, g))
-            frame[i + 2] = max(0, min(255, b))
-            i += 3
-        return bytes(frame)
+        return bytes([round(brightness * 255), *chain.from_iterable(pixels)])
 
     async def _run(self) -> None:
-        frame_time = 1.0 / self.FPS
-        last_running = self._running_name()
+        frame_time = 1.0 / self._fps
+        last_running = self._service.running_name
         while True:
             try:
                 await asyncio.wait_for(self._dirty.wait(), timeout=1.0)
@@ -98,7 +84,7 @@ class FrameBroadcaster:
                 dirty = False
             self._dirty.clear()
 
-            running = self._running_name()
+            running = self._service.running_name
             if running != last_running:
                 last_running = running
                 await self._send_all(self._status())

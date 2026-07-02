@@ -34,12 +34,13 @@ def list_presets(service: EffectService = Depends(get_effect_service)):
 @router.get("/running", response_model=RunningPresetResponse)
 def get_running(service: EffectService = Depends(get_effect_service)):
     eff = service.running
-    if eff is None or not eff.is_alive():
+    if eff is None:
         raise HTTPException(404, "No preset running")
 
+    name = eff.__class__.__name__
     return RunningPresetResponse(
-        name=eff.__class__.__name__,
-        description=service.registry.describe(eff.__class__.__name__),
+        name=name,
+        description=service.registry.describe(name),
         start_time=eff.start_time.isoformat(),
         duration_seconds=(
             datetime.datetime.now() - eff.start_time

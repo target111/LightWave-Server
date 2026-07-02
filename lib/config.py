@@ -16,6 +16,9 @@ class Settings:
     backend: Literal["neopixel", "mock"] = field(
         default_factory=lambda: os.getenv("LED_BACKEND", "neopixel")  # type: ignore[assignment,return-value]
     )
+    broadcast_fps: int = field(
+        default_factory=lambda: int(os.getenv("BROADCAST_FPS", "30"))
+    )
 
 
 def build_driver(settings: Settings) -> LEDDriver:

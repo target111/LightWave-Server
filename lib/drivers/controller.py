@@ -58,9 +58,10 @@ class LEDController:
         self._notify()
 
     def show(self) -> None:
+        # No notify: show() only flushes buffer writes that already
+        # notified, and effects call set_pixels() + show() every frame.
         with self._lock:
             self._driver.show()
-        self._notify()
 
     def clear(self) -> None:
         self.set_color((0, 0, 0))

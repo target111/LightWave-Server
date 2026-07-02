@@ -80,6 +80,7 @@ const ctx = els.strip.getContext("2d");
 const glowCtx = els.stripGlow.getContext("2d");
 let offscreen = null;
 let offscreenCtx = null;
+let stripImage = null;
 let frameCount = 0;
 
 function renderStrip(pixels, brightness) {
@@ -93,19 +94,19 @@ function renderStrip(pixels, brightness) {
     offscreen.width = n;
     offscreen.height = 1;
     offscreenCtx = offscreen.getContext("2d");
+    stripImage = offscreenCtx.createImageData(n, 1);
   }
 
-  const img = offscreenCtx.createImageData(n, 1);
+  const data = stripImage.data;
   for (let i = 0; i < n; i++) {
-    img.data[i * 4] = pixels[i * 3] * brightness;
-    img.data[i * 4 + 1] = pixels[i * 3 + 1] * brightness;
-    img.data[i * 4 + 2] = pixels[i * 3 + 2] * brightness;
-    img.data[i * 4 + 3] = 255;
+    data[i * 4] = pixels[i * 3] * brightness;
+    data[i * 4 + 1] = pixels[i * 3 + 1] * brightness;
+    data[i * 4 + 2] = pixels[i * 3 + 2] * brightness;
+    data[i * 4 + 3] = 255;
   }
-  offscreenCtx.putImageData(img, 0, 0);
+  offscreenCtx.putImageData(stripImage, 0, 0);
 
   for (const c of [ctx, glowCtx]) {
-    c.imageSmoothingEnabled = false;
     c.clearRect(0, 0, c.canvas.width, c.canvas.height);
     c.drawImage(offscreen, 0, 0, c.canvas.width, c.canvas.height);
   }
@@ -119,6 +120,8 @@ function sizeCanvases() {
   for (const canvas of [els.strip, els.stripGlow]) {
     canvas.width = Math.max(1, Math.round(rect.width));
     canvas.height = Math.max(1, Math.round(rect.height));
+    // Resizing resets context state, so re-apply here, not per frame.
+    canvas.getContext("2d").imageSmoothingEnabled = false;
   }
 }
 window.addEventListener("resize", sizeCanvases);

@@ -40,11 +40,20 @@ class EffectService:
 
     @property
     def running(self) -> Optional[EffectBase]:
-        return self._running
+        """The live effect, or None. An effect whose thread has exited
+        (finished or crashed) counts as not running."""
+        eff = self._running
+        if eff is not None and eff.is_alive():
+            return eff
+        return None
+
+    @property
+    def running_name(self) -> Optional[str]:
+        eff = self.running
+        return None if eff is None else eff.__class__.__name__
 
     def is_busy(self) -> bool:
-        eff = self._running
-        return eff is not None and eff.is_alive()
+        return self.running is not None
 
     async def start(self, name: str, args: dict) -> EffectBase:
         if not self._registry.has(name):

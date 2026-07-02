@@ -176,13 +176,6 @@ a:hover { text-decoration: underline; }
 
 /* ---------- live strip ---------- */
 
-.strip-section {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 18px;
-}
-
 .strip-frame {
   position: relative;
   height: 56px;
@@ -416,8 +409,6 @@ a:hover { text-decoration: underline; }
 
 .opt-desc { font-size: 11px; color: var(--text-faint); line-height: 1.4; }
 
-.opt-row { display: flex; align-items: center; gap: 12px; }
-
 /* ---------- inputs ---------- */
 
 input[type="range"] {
@@ -534,7 +525,8 @@ input[type="number"]:focus { outline: none; border-color: var(--cyan); }
 /* ---------- manual controls ---------- */
 
 .manual-body { display: flex; flex-direction: column; gap: 20px; }
-.manual-body.locked { opacity: 0.45; pointer-events: none; }
+/* Dim only — the JS disables the controls themselves. */
+.manual-body.locked { opacity: 0.45; }
 
 .control-row { display: flex; flex-direction: column; gap: 8px; }
 
@@ -597,6 +589,6 @@ input[type="number"]:focus { outline: none; border-color: var(--cyan); }
 @media (max-width: 480px) {
   .brand-logo { height: 26px; }
   .brand-name { font-size: 15px; }
-  .card, .strip-section { padding: 14px; }
+  .card { padding: 14px; }
   .np-info { gap: 8px; }
 }

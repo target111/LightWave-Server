@@ -23,7 +23,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     controller = LEDController(driver)
     registry = EffectRegistry()
     service = EffectService(controller, registry)
-    broadcaster = FrameBroadcaster(service)
+    broadcaster = FrameBroadcaster(service, fps=settings.broadcast_fps)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
