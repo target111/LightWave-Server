@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_extra_types.color import Color
@@ -31,7 +31,7 @@ class PresetStartRequest(BaseModel):
 
 
 class StatusResponse(BaseModel):
-    status: str
+    status: Literal["started", "stopped"]
     preset: str | None = None
 
 

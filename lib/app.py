@@ -29,6 +29,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         app.state.effect_service = service
         app.state.broadcaster = broadcaster
+        # Both change signals feed the same fan-out: pixel writes and
+        # preset lifecycle transitions wake the broadcaster.
+        controller.on_change = broadcaster.notify
+        service.on_state_change = broadcaster.notify
         broadcaster.start()
         logger.info(
             "LightWave starting (backend=%s, pin=%s, count=%d)",
@@ -41,6 +45,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             logger.info("LightWave shutting down")
             await broadcaster.stop()
+            controller.on_change = None
+            service.on_state_change = None
             await service.shutdown()
 
     app = FastAPI(title="LightWave", version="1.0.0", lifespan=lifespan)

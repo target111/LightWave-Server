@@ -20,9 +20,6 @@ class NeoPixelDriver:
     def brightness(self, value: float) -> None:
         self._pixels.brightness = value
 
-    def set_pixel(self, index: int, color: Color) -> None:
-        self._pixels[index] = color
-
     def set_pixels(self, colors: list[Color]) -> None:
         self._pixels[:] = colors
 

@@ -1,6 +1,6 @@
-from typing import Protocol, Tuple
+from typing import Protocol
 
-Color = Tuple[int, int, int]
+Color = tuple[int, int, int]
 
 
 class LEDDriver(Protocol):
@@ -14,7 +14,6 @@ class LEDDriver(Protocol):
     @brightness.setter
     def brightness(self, value: float) -> None: ...
 
-    def set_pixel(self, index: int, color: Color) -> None: ...
     def set_pixels(self, colors: list[Color]) -> None: ...
     def fill(self, color: Color) -> None: ...
     def show(self) -> None: ...

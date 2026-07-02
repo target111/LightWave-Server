@@ -1,24 +1,23 @@
-import os
-from dataclasses import dataclass, field
 from typing import Literal
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from lib.drivers.base import LEDDriver
 
 
-@dataclass(frozen=True)
-class Settings:
-    # default_factory so the env is read when Settings() is created,
-    # not once at import time
-    led_count: int = field(
-        default_factory=lambda: int(os.getenv("LED_COUNT", "300"))
+class Settings(BaseSettings):
+    """Read from the environment at construction time; invalid values
+    (unknown backend, non-numeric counts) fail fast with a clear error."""
+
+    model_config = SettingsConfigDict(frozen=True)
+
+    led_count: int = 300
+    led_pin: str = "D18"
+    backend: Literal["neopixel", "mock"] = Field(
+        "neopixel", validation_alias="LED_BACKEND"
     )
-    led_pin: str = field(default_factory=lambda: os.getenv("LED_PIN", "D18"))
-    backend: Literal["neopixel", "mock"] = field(
-        default_factory=lambda: os.getenv("LED_BACKEND", "neopixel")  # type: ignore[assignment,return-value]
-    )
-    broadcast_fps: int = field(
-        default_factory=lambda: int(os.getenv("BROADCAST_FPS", "30"))
-    )
+    broadcast_fps: int = 30
 
 
 def build_driver(settings: Settings) -> LEDDriver:

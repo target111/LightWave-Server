@@ -2,7 +2,6 @@ import importlib
 import inspect
 import logging
 import pkgutil
-from typing import Type
 
 from lib.effects.base import EffectBase
 
@@ -11,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class EffectRegistry:
     def __init__(self):
-        self._effects: dict[str, Type[EffectBase]] = {}
+        self._effects: dict[str, type[EffectBase]] = {}
         self._load_all()
 
     def _load_all(self) -> None:
@@ -36,7 +35,7 @@ class EffectRegistry:
                     self._effects[obj.__name__] = obj
                     logger.info("Registered effect: %s", obj.__name__)
 
-    def get(self, name: str) -> Type[EffectBase]:
+    def get(self, name: str) -> type[EffectBase]:
         if name not in self._effects:
             raise KeyError(name)
         return self._effects[name]

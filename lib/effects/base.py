@@ -97,7 +97,9 @@ def _option_type(cls_name: str, name: str, annotation: Any) -> str:
         return "float"
     if annotation is bool:
         return "bool"
-    if annotation == Color or annotation == tuple[int, int, int]:
+    # Color is tuple[int, int, int]; a literal tuple annotation compares
+    # equal, so this covers both spellings.
+    if annotation == Color:
         return "color"
     raise TypeError(
         f"{cls_name}.{name}: unsupported option annotation {annotation!r}; "
@@ -264,10 +266,6 @@ class EffectBase(abc.ABC, threading.Thread):
 
     def stop(self) -> None:
         self._stopped.set()
-
-    @property
-    def is_stopped(self) -> bool:
-        return self._stopped.is_set()
 
     @property
     def finished(self) -> bool:

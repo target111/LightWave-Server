@@ -1,7 +1,6 @@
 import logging
 import threading
-import time
-from typing import Callable, Optional
+from typing import Callable
 
 from lib.drivers.base import Color, LEDDriver
 
@@ -18,11 +17,16 @@ class LEDController:
         # Called (from whichever thread mutated the state) after every
         # write. Must be cheap and thread-safe; used to fan out state to
         # websocket clients.
-        self.on_change: Optional[Callable[[], None]] = None
+        self.on_change: Callable[[], None] | None = None
 
     @property
     def count(self) -> int:
         return self._driver.count
+
+    @property
+    def brightness(self) -> float:
+        with self._lock:
+            return self._driver.brightness
 
     def _notify(self) -> None:
         cb = self.on_change
@@ -33,11 +37,6 @@ class LEDController:
         """Consistent copy of the pixel buffer and brightness."""
         with self._lock:
             return self._driver.snapshot(), self._driver.brightness
-
-    def set_pixel(self, index: int, color: Color) -> None:
-        with self._lock:
-            self._driver.set_pixel(index, color)
-        self._notify()
 
     def set_pixels(self, colors: list[Color]) -> None:
         """Replace the whole frame in one lock acquisition."""
@@ -65,25 +64,6 @@ class LEDController:
 
     def clear(self) -> None:
         self.set_color((0, 0, 0))
-
-    def fade_out(self, duration: float) -> None:
-        """Linearly fade brightness to 0, clear, then restore brightness.
-        Blocking — call from a worker thread, not the event loop."""
-        fps = 30
-        steps = max(int(duration * fps), 1)
-        with self._lock:
-            start_brightness = self._driver.brightness
-
-        if start_brightness <= 0:
-            self.clear()
-            return
-
-        for i in range(1, steps + 1):
-            self.set_brightness(start_brightness * (1.0 - i / steps))
-            time.sleep(1.0 / fps)
-
-        self.clear()
-        self.set_brightness(start_brightness)
 
     def close(self) -> None:
         try:
