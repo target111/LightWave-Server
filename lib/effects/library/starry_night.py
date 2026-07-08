@@ -7,10 +7,6 @@ from lib.effects.base import Color, EffectBase, option
 class StarryNight(EffectBase):
     """
     Randomly fades stars in and out smoothly.
-
-    Stars are multi-colored by default, drawn from a warm/cool star
-    palette tunable with `saturation` and `hue_shift`. Set `colorful`
-    false to fade a single `color` instead.
     """
 
     PALETTE: list[Color] = [
