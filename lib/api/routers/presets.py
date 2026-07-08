@@ -1,85 +1,77 @@
-import datetime
+from fastapi import APIRouter, Depends, HTTPException, Response
 
-from fastapi import APIRouter, Depends, HTTPException
-
-from lib.api.dependencies import get_effect_service
+from lib.api.dependencies import get_effect_service, get_preset_store
 from lib.api.schemas import (
-    PresetInfo,
+    PresetBody,
+    PresetRecord,
     PresetsListResponse,
-    PresetStartRequest,
-    PresetSummary,
-    RunningPresetResponse,
     StatusResponse,
 )
-from lib.services.effect import (
-    EffectService,
-    EffectStartError,
-    NoEffectRunningError,
+from lib.services.effect import EffectService, EffectStartError
+from lib.services.presets import (
+    PresetError,
+    PresetNotFoundError,
+    PresetStore,
 )
 
 router = APIRouter(prefix="/presets", tags=["presets"])
 
 
 @router.get("", response_model=PresetsListResponse)
-def list_presets(service: EffectService = Depends(get_effect_service)):
-    reg = service.registry
+def list_presets(store: PresetStore = Depends(get_preset_store)):
     return PresetsListResponse(
-        presets=[
-            PresetSummary(name=n, description=reg.describe(n))
-            for n in reg.names()
-        ]
+        presets=[PresetRecord(**p) for p in store.list()]
     )
 
 
-@router.get("/running", response_model=RunningPresetResponse)
-def get_running(service: EffectService = Depends(get_effect_service)):
-    eff = service.running
-    if eff is None:
-        raise HTTPException(404, "No preset running")
-
-    name = eff.__class__.__name__
-    return RunningPresetResponse(
-        name=name,
-        description=service.registry.describe(name),
-        start_time=eff.start_time.isoformat(),
-        duration_seconds=(
-            datetime.datetime.now() - eff.start_time
-        ).total_seconds(),
-    )
-
-
-@router.get("/{preset_name}", response_model=PresetInfo)
-def get_preset(
-    preset_name: str,
-    service: EffectService = Depends(get_effect_service),
-):
-    if not service.registry.has(preset_name):
+@router.get("/{name}", response_model=PresetRecord)
+def get_preset(name: str, store: PresetStore = Depends(get_preset_store)):
+    try:
+        return store.get(name)
+    except PresetNotFoundError:
         raise HTTPException(404, "Preset not found")
-    return PresetInfo(
-        description=service.registry.describe(preset_name),
-        args=service.registry.schema(preset_name),
-    )
 
 
-@router.post("/start", response_model=StatusResponse, status_code=202)
+@router.put("/{name}", response_model=PresetRecord)
+def save_preset(
+    name: str,
+    body: PresetBody,
+    store: PresetStore = Depends(get_preset_store),
+):
+    try:
+        return store.save(name, body.effect, body.args, body.description)
+    except PresetError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.delete("/{name}", status_code=204, response_class=Response)
+def delete_preset(name: str, store: PresetStore = Depends(get_preset_store)):
+    try:
+        store.delete(name)
+    except PresetNotFoundError:
+        raise HTTPException(404, "Preset not found")
+
+
+@router.post("/{name}/start", response_model=StatusResponse, status_code=202)
 async def start_preset(
-    body: PresetStartRequest,
+    name: str,
+    store: PresetStore = Depends(get_preset_store),
     service: EffectService = Depends(get_effect_service),
 ):
     try:
-        await service.start(body.preset_name, body.args)
-    except KeyError:
+        preset = store.get(name)
+    except PresetNotFoundError:
         raise HTTPException(404, "Preset not found")
+
+    try:
+        await service.start(preset["effect"], preset["args"], preset=name)
+    except KeyError:
+        # The preset outlived its effect (renamed/removed from the library).
+        raise HTTPException(
+            422, f"Effect {preset['effect']!r} no longer exists"
+        )
     except EffectStartError as e:
         raise HTTPException(503, f"Failed to start preset: {e}")
-    return StatusResponse(status="started", preset=body.preset_name)
-
-
-@router.post("/stop", response_model=StatusResponse, status_code=202)
-async def stop_preset(service: EffectService = Depends(get_effect_service)):
-    try:
-        await service.stop()
-    except NoEffectRunningError:
-        raise HTTPException(404, "No preset running")
-
-    return StatusResponse(status="stopped")
+    return StatusResponse(
+        status="started", effect=preset["effect"], preset=name
+    )

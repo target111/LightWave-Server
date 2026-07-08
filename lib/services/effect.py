@@ -31,6 +31,7 @@ class EffectService:
         self._led = led
         self._registry = registry
         self._running: EffectBase | None = None
+        self._running_preset: str | None = None
         self._lock = asyncio.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
         # Called after the running effect changes: started, stopped, or
@@ -67,10 +68,17 @@ class EffectService:
         eff = self.running
         return None if eff is None else eff.__class__.__name__
 
+    @property
+    def running_preset(self) -> str | None:
+        """Name of the preset the live effect was started from, if any."""
+        return self._running_preset if self.running is not None else None
+
     def is_busy(self) -> bool:
         return self.running is not None
 
-    async def start(self, name: str, args: dict) -> EffectBase:
+    async def start(
+        self, name: str, args: dict, preset: str | None = None
+    ) -> EffectBase:
         cls = self._registry.get(name)  # raises KeyError for unknown names
         async with self._lock:
             self._loop = asyncio.get_running_loop()
@@ -84,6 +92,7 @@ class EffectService:
             effect.on_finished = functools.partial(self._effect_exited, effect)
             effect.start()
             self._running = effect
+            self._running_preset = preset
             self._notify_state()
             logger.info("Started effect %s with args=%s", name, args)
             return effect

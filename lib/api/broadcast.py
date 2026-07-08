@@ -15,14 +15,15 @@ class FrameBroadcaster:
 
     Effect threads and API handlers call `notify()` (cheap and
     thread-safe) via `LEDController.on_change` (pixel writes) and
-    `EffectService.on_state_change` (preset started/stopped/died) — both
+    `EffectService.on_state_change` (effect started/stopped/died) — both
     wired up in the app lifespan; an asyncio task coalesces those
     wake-ups, snapshots the controller, and pushes one frame to every
     client, throttled to `fps`.
 
     Wire protocol: pixel frames are binary — one brightness byte
-    (0-255) followed by 3 bytes (RGB) per LED. The running preset is
-    sent as a JSON text message, only on connect and when it changes."""
+    (0-255) followed by 3 bytes (RGB) per LED. The running effect (and
+    the preset it was started from, if any) is sent as a JSON text
+    message, only on connect and when it changes."""
 
     def __init__(self, service: EffectService, fps: int = 30):
         self._service = service
@@ -63,7 +64,17 @@ class FrameBroadcaster:
         self._clients.discard(websocket)
 
     def _status(self) -> dict:
-        return {"type": "status", "running": self._service.running_name}
+        return {
+            "type": "status",
+            "running": self._service.running_name,
+            "preset": self._service.running_preset,
+        }
+
+    def _running_key(self) -> tuple[str | None, str | None]:
+        """What a status message announces — a change in either part
+        (starting the same effect from a different preset included)
+        must push a fresh status."""
+        return (self._service.running_name, self._service.running_preset)
 
     def _frame(self) -> bytes:
         pixels, brightness = self._service.controller.snapshot()
@@ -71,13 +82,13 @@ class FrameBroadcaster:
 
     async def _run(self) -> None:
         frame_time = 1.0 / self._fps
-        last_running = self._service.running_name
+        last_running = self._running_key()
         while True:
             await self._dirty.wait()
             self._dirty.clear()
 
             try:
-                running = self._service.running_name
+                running = self._running_key()
                 if running != last_running:
                     last_running = running
                     await self._send_all(self._status())

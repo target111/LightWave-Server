@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
         "neopixel", validation_alias="LED_BACKEND"
     )
     broadcast_fps: int = 30
+    presets_file: Path = Path("presets.json")
 
 
 def build_driver(settings: Settings) -> LEDDriver:

@@ -180,6 +180,20 @@ class EffectBase(abc.ABC, threading.Thread):
         self.setup()
 
     @classmethod
+    def validate_options(cls, overrides: dict) -> dict:
+        """Strictly check a partial set of option values — unknown names
+        are an error, unlike construction which just warns — and return
+        only those values, coerced to their declared types. Used to vet
+        preset args before they are persisted."""
+        unknown = set(overrides) - set(cls._options)
+        if unknown:
+            raise ValueError(
+                f"{cls.__name__}: unknown options {sorted(unknown)}"
+            )
+        resolved = cls._resolve_config(overrides)
+        return {name: resolved[name] for name in overrides}
+
+    @classmethod
     def _resolve_config(cls, overrides: dict) -> dict:
         unknown = set(overrides) - set(cls._options)
         if unknown:

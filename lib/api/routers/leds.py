@@ -1,10 +1,20 @@
 from fastapi import APIRouter, Depends, Response
 
 from lib.api.dependencies import get_effect_service, require_idle
-from lib.api.schemas import BrightnessRequest, ColorRequest
+from lib.api.schemas import BrightnessRequest, ColorRequest, LedStateResponse
 from lib.services.effect import EffectService
 
 router = APIRouter(prefix="/leds", tags=["leds"])
+
+
+@router.get("", response_model=LedStateResponse)
+def get_state(service: EffectService = Depends(get_effect_service)):
+    pixels, brightness = service.controller.snapshot()
+    return LedStateResponse(
+        count=service.controller.count,
+        brightness=brightness,
+        pixels=pixels,
+    )
 
 
 @router.post("/color/set", status_code=204, response_class=Response)

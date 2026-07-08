@@ -22,11 +22,12 @@ uv sync --extra dev   # tests, lint, type checking
 
 Set via environment variables:
 
-| Variable      | Default    | Description                              |
-| ------------- | ---------- | ---------------------------------------- |
-| `LED_COUNT`   | `300`      | Number of LEDs on the strip              |
-| `LED_PIN`     | `D18`      | GPIO pin connected to the data line      |
-| `LED_BACKEND` | `neopixel` | `neopixel` (hardware) or `mock` (dev)    |
+| Variable       | Default        | Description                             |
+| -------------- | -------------- | --------------------------------------- |
+| `LED_COUNT`    | `300`          | Number of LEDs on the strip             |
+| `LED_PIN`      | `D18`          | GPIO pin connected to the data line     |
+| `LED_BACKEND`  | `neopixel`     | `neopixel` (hardware) or `mock` (dev)   |
+| `PRESETS_FILE` | `presets.json` | Where user presets are persisted        |
 
 ## Running
 
@@ -40,20 +41,37 @@ Interactive API docs: `http://<host>:8000/docs`
 
 | Method | Path                    | Description                            |
 | ------ | ----------------------- | -------------------------------------- |
-| GET    | `/presets`              | List available effects                 |
-| GET    | `/presets/running`      | Currently running effect               |
-| GET    | `/presets/{name}`       | Effect description and options         |
-| POST   | `/presets/start`        | Start an effect                        |
-| POST   | `/presets/stop`         | Stop the running effect (fades out)    |
+| GET    | `/effects`              | List available effects                 |
+| GET    | `/effects/running`      | Currently running effect               |
+| GET    | `/effects/{name}`       | Effect description and options         |
+| POST   | `/effects/start`        | Start an effect                        |
+| POST   | `/effects/stop`         | Stop the running effect (fades out)    |
+| GET    | `/presets`              | List saved presets                     |
+| GET    | `/presets/{name}`       | One saved preset                       |
+| PUT    | `/presets/{name}`       | Create or update a preset              |
+| DELETE | `/presets/{name}`       | Delete a preset                        |
+| POST   | `/presets/{name}/start` | Start the preset's effect              |
+| GET    | `/leds`                 | Current pixels and brightness          |
 | POST   | `/leds/color/set`       | Set a static color                     |
 | POST   | `/leds/color/clear`     | Turn all LEDs off                      |
 | POST   | `/leds/brightness`      | Set global brightness (0.0–1.0)        |
 
+A *preset* is a saved configuration of an effect — a name, the effect it
+runs, and the option values to run it with. Presets live in one JSON file
+on the server (`PRESETS_FILE`), so every client sees the same list. Preset
+names must not collide with effect names.
+
 ```bash
 # Start an effect with custom options
-curl -X POST http://localhost:8000/presets/start \
+curl -X POST http://localhost:8000/effects/start \
   -H "Content-Type: application/json" \
-  -d '{"preset_name": "RainbowCycle", "args": {"speed": 2.5}}'
+  -d '{"effect_name": "RainbowCycle", "args": {"speed": 2.5}}'
+
+# Save those options as a preset, then start it by name
+curl -X PUT http://localhost:8000/presets/party \
+  -H "Content-Type: application/json" \
+  -d '{"effect": "RainbowCycle", "args": {"speed": 2.5}, "description": "fast rainbow"}'
+curl -X POST http://localhost:8000/presets/party/start
 
 # Set a static color
 curl -X POST http://localhost:8000/leds/color/set \

@@ -9,7 +9,7 @@ router = APIRouter()
 async def state_stream(websocket: WebSocket):
     """Streams the strip state whenever it changes, throttled
     server-side: binary pixel frames (1 brightness byte + 3 bytes per
-    LED) plus JSON status messages when the running preset changes."""
+    LED) plus JSON status messages when the running effect changes."""
     broadcaster: FrameBroadcaster = websocket.app.state.broadcaster
     await broadcaster.connect(websocket)
     try:

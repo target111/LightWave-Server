@@ -314,15 +314,15 @@ a:hover { text-decoration: underline; }
 }
 .btn-ghost:hover { color: var(--text); }
 
-/* ---------- preset grid ---------- */
+/* ---------- effect grid ---------- */
 
-.preset-grid {
+.effect-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
 }
 
-.preset-tile {
+.effect-tile {
   text-align: left;
   font-family: var(--font-display);
   background: var(--panel-2);
@@ -337,18 +337,18 @@ a:hover { text-decoration: underline; }
   gap: 4px;
   transition: border-color 0.15s, background 0.15s;
 }
-.preset-tile:hover { border-color: var(--line-bright); background: #141824; }
-.preset-tile.selected { border-color: var(--cyan); }
-.preset-tile.running {
+.effect-tile:hover { border-color: var(--line-bright); background: #141824; }
+.effect-tile.selected { border-color: var(--cyan); }
+.effect-tile.running {
   border-color: transparent;
   background:
     linear-gradient(var(--panel-2), var(--panel-2)) padding-box,
     var(--spectrum) border-box;
 }
 
-.preset-tile-name { font-weight: 600; font-size: 13px; letter-spacing: 0.05em; }
+.effect-tile-name { font-weight: 600; font-size: 13px; letter-spacing: 0.05em; }
 
-.preset-tile-desc {
+.effect-tile-desc {
   font-size: 11px;
   color: var(--text-dim);
   line-height: 1.35;
@@ -358,7 +358,7 @@ a:hover { text-decoration: underline; }
   overflow: hidden;
 }
 
-.preset-tile-live {
+.effect-tile-live {
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.25em;
@@ -367,9 +367,9 @@ a:hover { text-decoration: underline; }
 
 .empty-note { color: var(--text-faint); font-size: 13px; padding: 8px 0; }
 
-/* ---------- preset config ---------- */
+/* ---------- effect config ---------- */
 
-.preset-config {
+.effect-config {
   margin-top: 16px;
   border-top: 1px solid var(--line);
   padding-top: 16px;

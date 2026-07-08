@@ -16,9 +16,9 @@ const els = {
   npName: $("np-name"),
   npElapsed: $("np-elapsed"),
   btnStop: $("btn-stop"),
-  presetGrid: $("preset-grid"),
-  presetCount: $("preset-count"),
-  presetConfig: $("preset-config"),
+  effectGrid: $("effect-grid"),
+  effectCount: $("effect-count"),
+  effectConfig: $("effect-config"),
   configTitle: $("config-title"),
   configDesc: $("config-desc"),
   configForm: $("config-form"),
@@ -37,10 +37,11 @@ const els = {
 };
 
 const state = {
-  running: null, // name of the running preset, or null
+  running: null, // name of the running effect, or null
+  runningPreset: null, // preset the effect was started from, or null
   runningStart: null, // ms timestamp used for the elapsed readout
-  selected: null, // preset selected in the config panel
-  schemas: new Map(), // preset name -> {description, args}
+  selected: null, // effect selected in the config panel
+  schemas: new Map(), // effect name -> {description, args}
   ledCount: 0,
 };
 
@@ -110,7 +111,7 @@ function renderStrip(pixels, brightness) {
     c.drawImage(offscreen, 0, 0, c.canvas.width, c.canvas.height);
   }
 
-  // The server owns brightness (a preset start resets it to 100%, and
+  // The server owns brightness (an effect start resets it to 100%, and
   // another device may change it) — follow it unless the user is
   // interacting with the slider right now.
   if (document.activeElement !== els.brightness) {
@@ -157,12 +158,15 @@ function connect() {
   };
 
   // Binary messages are pixel frames (1 brightness byte + 3 bytes/LED);
-  // text messages are JSON status events (running preset changed).
+  // text messages are JSON status events (running effect changed).
   ws.onmessage = (event) => {
     if (typeof event.data === "string") {
       const msg = JSON.parse(event.data);
-      if (msg.type === "status" && msg.running !== state.running) {
-        setRunning(msg.running);
+      if (
+        msg.type === "status" &&
+        (msg.running !== state.running || msg.preset !== state.runningPreset)
+      ) {
+        setRunning(msg.running, msg.preset);
       }
       return;
     }
@@ -182,10 +186,11 @@ function connect() {
   ws.onerror = () => ws.close();
 }
 
-/* ---------- running preset state ---------- */
+/* ---------- running effect state ---------- */
 
-function setRunning(name) {
+function setRunning(name, preset = null) {
   state.running = name;
+  state.runningPreset = preset;
   els.nowPlaying.hidden = !name;
   els.btnStop.disabled = !name;
   els.manualLock.hidden = !name;
@@ -194,18 +199,18 @@ function setRunning(name) {
     .querySelectorAll("input, button")
     .forEach((el) => (el.disabled = !!name));
 
-  for (const tile of els.presetGrid.querySelectorAll(".preset-tile")) {
+  for (const tile of els.effectGrid.querySelectorAll(".effect-tile")) {
     const isRunning = tile.dataset.name === name;
     tile.classList.toggle("running", isRunning);
-    tile.querySelector(".preset-tile-live").hidden = !isRunning;
+    tile.querySelector(".effect-tile-live").hidden = !isRunning;
   }
 
   if (name) {
-    els.npName.textContent = name;
+    els.npName.textContent = preset ? `${preset} · ${name}` : name;
     state.runningStart = Date.now();
     // The websocket only says *what* runs; ask the API since when so the
     // elapsed readout survives page reloads.
-    api("/presets/running")
+    api("/effects/running")
       .then((info) => {
         state.runningStart = Date.now() - info.duration_seconds * 1000;
       })
@@ -225,53 +230,53 @@ setInterval(() => {
 
 els.btnStop.addEventListener("click", async () => {
   try {
-    await api("/presets/stop", { method: "POST" });
+    await api("/effects/stop", { method: "POST" });
   } catch (err) {
     toast(`Stop failed: ${err.message}`, true);
   }
 });
 
-/* ---------- presets ---------- */
+/* ---------- effects ---------- */
 
-async function loadPresets() {
+async function loadEffects() {
   try {
-    const data = await api("/presets");
-    els.presetGrid.innerHTML = "";
-    els.presetCount.textContent = `${data.presets.length}`;
-    for (const preset of data.presets) {
+    const data = await api("/effects");
+    els.effectGrid.innerHTML = "";
+    els.effectCount.textContent = `${data.effects.length}`;
+    for (const effect of data.effects) {
       const tile = document.createElement("button");
       tile.type = "button";
-      tile.className = "preset-tile";
-      tile.dataset.name = preset.name;
+      tile.className = "effect-tile";
+      tile.dataset.name = effect.name;
       tile.innerHTML = `
-        <span class="preset-tile-live" hidden>● LIVE</span>
-        <span class="preset-tile-name"></span>
-        <span class="preset-tile-desc"></span>`;
-      tile.querySelector(".preset-tile-name").textContent = preset.name;
-      tile.querySelector(".preset-tile-desc").textContent = preset.description;
-      tile.addEventListener("click", () => selectPreset(preset.name));
-      els.presetGrid.appendChild(tile);
+        <span class="effect-tile-live" hidden>● LIVE</span>
+        <span class="effect-tile-name"></span>
+        <span class="effect-tile-desc"></span>`;
+      tile.querySelector(".effect-tile-name").textContent = effect.name;
+      tile.querySelector(".effect-tile-desc").textContent = effect.description;
+      tile.addEventListener("click", () => selectEffect(effect.name));
+      els.effectGrid.appendChild(tile);
     }
-    if (state.running) setRunning(state.running); // re-mark the live tile
+    if (state.running) setRunning(state.running, state.runningPreset); // re-mark the live tile
   } catch (err) {
-    els.presetGrid.innerHTML =
-      '<div class="empty-note">failed to load presets — is the server up?</div>';
+    els.effectGrid.innerHTML =
+      '<div class="empty-note">failed to load effects — is the server up?</div>';
   }
 }
 
-async function selectPreset(name) {
+async function selectEffect(name) {
   if (state.selected === name) {
-    closeConfig(); // clicking the selected preset again collapses it
+    closeConfig(); // clicking the selected effect again collapses it
     return;
   }
   state.selected = name;
-  for (const tile of els.presetGrid.querySelectorAll(".preset-tile")) {
+  for (const tile of els.effectGrid.querySelectorAll(".effect-tile")) {
     tile.classList.toggle("selected", tile.dataset.name === name);
   }
 
   if (!state.schemas.has(name)) {
     try {
-      state.schemas.set(name, await api(`/presets/${name}`));
+      state.schemas.set(name, await api(`/effects/${name}`));
     } catch (err) {
       toast(`Failed to load ${name}: ${err.message}`, true);
       return;
@@ -282,14 +287,14 @@ async function selectPreset(name) {
   els.configTitle.textContent = name;
   els.configDesc.textContent = info.description;
   buildConfigForm(info.args);
-  els.presetConfig.hidden = false;
-  els.presetConfig.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  els.effectConfig.hidden = false;
+  els.effectConfig.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function closeConfig() {
-  els.presetConfig.hidden = true;
+  els.effectConfig.hidden = true;
   state.selected = null;
-  for (const tile of els.presetGrid.querySelectorAll(".preset-tile")) {
+  for (const tile of els.effectGrid.querySelectorAll(".effect-tile")) {
     tile.classList.remove("selected");
   }
 }
@@ -390,10 +395,10 @@ els.btnStart.addEventListener("click", async () => {
   if (!state.selected) return;
   els.btnStart.disabled = true;
   try {
-    await api("/presets/start", {
+    await api("/effects/start", {
       method: "POST",
       body: JSON.stringify({
-        preset_name: state.selected,
+        effect_name: state.selected,
         args: collectArgs(),
       }),
     });
@@ -486,4 +491,4 @@ els.brightness.addEventListener("input", () => {
 
 sizeCanvases();
 connect();
-loadPresets();
+loadEffects();

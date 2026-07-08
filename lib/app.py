@@ -6,11 +6,12 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from lib.api.broadcast import FrameBroadcaster
-from lib.api.routers import leds, presets, ws
+from lib.api.routers import effects, leds, presets, ws
 from lib.config import Settings, build_driver
 from lib.drivers.controller import LEDController
 from lib.effects.registry import EffectRegistry
 from lib.services.effect import EffectService
+from lib.services.presets import PresetStore
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +24,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     controller = LEDController(driver)
     registry = EffectRegistry()
     service = EffectService(controller, registry)
+    preset_store = PresetStore(settings.presets_file, registry)
     broadcaster = FrameBroadcaster(service, fps=settings.broadcast_fps)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.effect_service = service
+        app.state.preset_store = preset_store
         app.state.broadcaster = broadcaster
         # Both change signals feed the same fan-out: pixel writes and
-        # preset lifecycle transitions wake the broadcaster.
+        # effect lifecycle transitions wake the broadcaster.
         controller.on_change = broadcaster.notify
         service.on_state_change = broadcaster.notify
         broadcaster.start()
@@ -50,6 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await service.shutdown()
 
     app = FastAPI(title="LightWave", version="1.0.0", lifespan=lifespan)
+    app.include_router(effects.router)
     app.include_router(presets.router)
     app.include_router(leds.router)
     app.include_router(ws.router)
