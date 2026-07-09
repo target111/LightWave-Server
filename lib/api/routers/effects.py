@@ -11,11 +11,7 @@ from lib.api.schemas import (
     RunningEffectResponse,
     StatusResponse,
 )
-from lib.services.effect import (
-    EffectService,
-    EffectStartError,
-    NoEffectRunningError,
-)
+from lib.services.effect import EffectService
 
 router = APIRouter(prefix="/effects", tags=["effects"])
 
@@ -71,16 +67,10 @@ async def start_effect(
         await service.start(body.effect_name, body.args)
     except KeyError:
         raise HTTPException(404, "Effect not found")
-    except EffectStartError as e:
-        raise HTTPException(503, f"Failed to start effect: {e}")
     return StatusResponse(status="started", effect=body.effect_name)
 
 
 @router.post("/stop", response_model=StatusResponse, status_code=202)
 async def stop_effect(service: EffectService = Depends(get_effect_service)):
-    try:
-        await service.stop()
-    except NoEffectRunningError:
-        raise HTTPException(404, "No effect running")
-
+    await service.stop()
     return StatusResponse(status="stopped")

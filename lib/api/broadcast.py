@@ -64,17 +64,14 @@ class FrameBroadcaster:
         self._clients.discard(websocket)
 
     def _status(self) -> dict:
+        """The status payload, which doubles as the change key: a change
+        in either the running effect or its preset (starting the same
+        effect from a different preset included) pushes a fresh status."""
         return {
             "type": "status",
             "running": self._service.running_name,
             "preset": self._service.running_preset,
         }
-
-    def _running_key(self) -> tuple[str | None, str | None]:
-        """What a status message announces — a change in either part
-        (starting the same effect from a different preset included)
-        must push a fresh status."""
-        return (self._service.running_name, self._service.running_preset)
 
     def _frame(self) -> bytes:
         pixels, brightness = self._service.controller.snapshot()
@@ -82,16 +79,16 @@ class FrameBroadcaster:
 
     async def _run(self) -> None:
         frame_time = 1.0 / self._fps
-        last_running = self._running_key()
+        last_status = self._status()
         while True:
             await self._dirty.wait()
             self._dirty.clear()
 
             try:
-                running = self._running_key()
-                if running != last_running:
-                    last_running = running
-                    await self._send_all(self._status())
+                status = self._status()
+                if status != last_status:
+                    last_status = status
+                    await self._send_all(status)
                 if self._clients:
                     await self._send_all(self._frame())
             except asyncio.CancelledError:
@@ -102,16 +99,23 @@ class FrameBroadcaster:
             await asyncio.sleep(frame_time)
 
     async def _send_all(self, message: dict | bytes) -> None:
-        dead = []
-        # Snapshot: each send awaits, and a client connecting or
+        # Snapshot: sends run concurrently, and a client connecting or
         # disconnecting meanwhile would mutate the set mid-iteration.
-        for ws in tuple(self._clients):
-            try:
-                if isinstance(message, bytes):
-                    await ws.send_bytes(message)
-                else:
-                    await ws.send_json(message)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self._clients.discard(ws)
+        clients = tuple(self._clients)
+        if not clients:
+            return
+        # Fan out concurrently so one slow/stalled socket can't hold up
+        # the frame cadence for everyone else.
+        results = await asyncio.gather(
+            *(self._send_one(ws, message) for ws in clients),
+            return_exceptions=True,
+        )
+        for ws, result in zip(clients, results):
+            if isinstance(result, Exception):
+                self._clients.discard(ws)
+
+    async def _send_one(self, ws: WebSocket, message: dict | bytes) -> None:
+        if isinstance(message, bytes):
+            await ws.send_bytes(message)
+        else:
+            await ws.send_json(message)

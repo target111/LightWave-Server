@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from lib.api.broadcast import FrameBroadcaster
+from lib.api.errors import register_exception_handlers
 from lib.api.routers import effects, leds, presets, ws
 from lib.config import Settings, build_driver
 from lib.drivers.controller import LEDController
@@ -53,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await service.shutdown()
 
     app = FastAPI(title="LightWave", version="1.0.0", lifespan=lifespan)
+    register_exception_handlers(app)
     app.include_router(effects.router)
     app.include_router(presets.router)
     app.include_router(leds.router)

@@ -81,10 +81,15 @@ class PresetStore:
                 os.unlink(tmp)
             raise
 
+    @staticmethod
+    def _record(name: str, body: dict) -> dict:
+        """A stored body plus its name — the shape clients see."""
+        return {"name": name, **body}
+
     def list(self) -> list[dict]:
         with self._lock:
             return [
-                {"name": name, **body}
+                self._record(name, body)
                 for name, body in sorted(self._presets.items())
             ]
 
@@ -92,7 +97,7 @@ class PresetStore:
         with self._lock:
             if name not in self._presets:
                 raise PresetNotFoundError(name)
-            return {"name": name, **self._presets[name]}
+            return self._record(name, self._presets[name])
 
     def save(
         self, name: str, effect: str, args: dict, description: str
@@ -121,7 +126,7 @@ class PresetStore:
         with self._lock:
             self._presets[name] = body
             self._write_locked()
-        return {"name": name, **body}
+        return self._record(name, body)
 
     def delete(self, name: str) -> None:
         with self._lock:

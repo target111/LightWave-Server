@@ -2,6 +2,7 @@ import asyncio
 import functools
 import logging
 import time
+from dataclasses import dataclass
 from typing import Callable
 
 from lib.drivers.controller import LEDController
@@ -19,6 +20,23 @@ class EffectStartError(Exception):
     """Raised when an effect fails to construct (bad args, busy port...)."""
 
 
+@dataclass(frozen=True)
+class RunningEffect:
+    """The live effect plus the preset it was started from (if any). Set
+    and cleared as one reference so the effect and its provenance can't
+    fall out of sync."""
+
+    effect: EffectBase
+    preset: str | None = None
+
+    @property
+    def is_live(self) -> bool:
+        """False once run() has exited (finished or crashed) — `finished`
+        flips before the thread is fully dead, so an effect that ended on
+        its own reads as not-live even before it has been reaped."""
+        return not self.effect.finished and self.effect.is_alive()
+
+
 class EffectService:
     """Owns the currently running effect. All start/stop transitions go
     through one asyncio lock so two concurrent API calls cannot race."""
@@ -30,8 +48,7 @@ class EffectService:
     def __init__(self, led: LEDController, registry: EffectRegistry):
         self._led = led
         self._registry = registry
-        self._running: EffectBase | None = None
-        self._running_preset: str | None = None
+        self._current: RunningEffect | None = None
         self._lock = asyncio.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
         # Called after the running effect changes: started, stopped, or
@@ -54,14 +71,19 @@ class EffectService:
         return self._registry
 
     @property
+    def _live(self) -> RunningEffect | None:
+        """The current effect if it is still animating, else None — the
+        single source both `running` and `running_preset` derive from, so
+        they can never disagree about whether something is running."""
+        cur = self._current
+        return cur if cur is not None and cur.is_live else None
+
+    @property
     def running(self) -> EffectBase | None:
         """The live effect, or None. An effect whose run() has exited
-        (finished or crashed) counts as not running — checked via
-        `finished`, which flips before the thread is fully dead."""
-        eff = self._running
-        if eff is not None and not eff.finished and eff.is_alive():
-            return eff
-        return None
+        (finished or crashed) counts as not running."""
+        cur = self._live
+        return cur.effect if cur is not None else None
 
     @property
     def running_name(self) -> str | None:
@@ -71,7 +93,8 @@ class EffectService:
     @property
     def running_preset(self) -> str | None:
         """Name of the preset the live effect was started from, if any."""
-        return self._running_preset if self.running is not None else None
+        cur = self._live
+        return cur.preset if cur is not None else None
 
     def is_busy(self) -> bool:
         return self.running is not None
@@ -91,15 +114,14 @@ class EffectService:
                 raise EffectStartError(str(e)) from e
             effect.on_finished = functools.partial(self._effect_exited, effect)
             effect.start()
-            self._running = effect
-            self._running_preset = preset
+            self._current = RunningEffect(effect, preset)
             self._notify_state()
             logger.info("Started effect %s with args=%s", name, args)
             return effect
 
     async def stop(self) -> None:
         async with self._lock:
-            if self._running is None:
+            if self._current is None:
                 raise NoEffectRunningError()
             await self._stop_locked()
 
@@ -120,21 +142,22 @@ class EffectService:
     async def _reap(self, effect: EffectBase) -> None:
         """Tear down an effect that exited on its own (finished or
         crashed) so it converges on the same end state as an explicit
-        stop(): `_running` cleared and the strip faded to black."""
+        stop(): `_current` cleared and the strip faded to black."""
         async with self._lock:
-            if self._running is not effect:
+            cur = self._current
+            if cur is None or cur.effect is not effect:
                 return  # already stopped explicitly or replaced
-            self._running = None
+            self._current = None
             await asyncio.to_thread(self._teardown_blocking, effect)
         self._notify_state()
 
     async def _stop_locked(self) -> None:
         """Stop + join + fade. Caller must hold `self._lock`."""
-        effect = self._running
-        if effect is None:
+        cur = self._current
+        if cur is None:
             return
-        self._running = None
-        await asyncio.to_thread(self._teardown_blocking, effect)
+        self._current = None
+        await asyncio.to_thread(self._teardown_blocking, cur.effect)
 
     def _teardown_blocking(self, effect: EffectBase) -> None:
         effect.stop()

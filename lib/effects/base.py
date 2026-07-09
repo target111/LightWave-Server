@@ -185,18 +185,17 @@ class EffectBase(abc.ABC, threading.Thread):
         are an error, unlike construction which just warns — and return
         only those values, coerced to their declared types. Used to vet
         preset args before they are persisted."""
-        unknown = set(overrides) - set(cls._options)
-        if unknown:
-            raise ValueError(
-                f"{cls.__name__}: unknown options {sorted(unknown)}"
-            )
-        resolved = cls._resolve_config(overrides)
+        resolved = cls._resolve_config(overrides, strict=True)
         return {name: resolved[name] for name in overrides}
 
     @classmethod
-    def _resolve_config(cls, overrides: dict) -> dict:
+    def _resolve_config(cls, overrides: dict, *, strict: bool = False) -> dict:
         unknown = set(overrides) - set(cls._options)
         if unknown:
+            if strict:
+                raise ValueError(
+                    f"{cls.__name__}: unknown options {sorted(unknown)}"
+                )
             logger.warning(
                 "%s: ignoring unknown options %s",
                 cls.__name__,
