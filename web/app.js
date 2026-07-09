@@ -18,6 +18,14 @@ const els = {
   btnStop: $("btn-stop"),
   effectGrid: $("effect-grid"),
   effectCount: $("effect-count"),
+  presetList: $("preset-list"),
+  presetCount: $("preset-count"),
+  btnSavePreset: $("btn-save-preset"),
+  presetSave: $("preset-save"),
+  presetName: $("preset-name"),
+  presetDesc: $("preset-desc"),
+  presetSaveConfirm: $("preset-save-confirm"),
+  presetSaveCancel: $("preset-save-cancel"),
   effectConfig: $("effect-config"),
   configTitle: $("config-title"),
   configDesc: $("config-desc"),
@@ -42,6 +50,8 @@ const state = {
   runningStart: null, // ms timestamp used for the elapsed readout
   selected: null, // effect selected in the config panel
   schemas: new Map(), // effect name -> {description, args}
+  presets: [], // saved presets, as returned by GET /presets
+  editingPreset: null, // preset name the config panel was opened from
   ledCount: 0,
 };
 
@@ -205,6 +215,12 @@ function setRunning(name, preset = null) {
     tile.querySelector(".effect-tile-live").hidden = !isRunning;
   }
 
+  for (const tile of els.presetList.querySelectorAll(".preset-tile")) {
+    const isRunning = !!name && tile.dataset.name === preset;
+    tile.classList.toggle("running", isRunning);
+    tile.querySelector(".preset-live").hidden = !isRunning;
+  }
+
   if (name) {
     els.npName.textContent = preset ? `${preset} · ${name}` : name;
     state.runningStart = Date.now();
@@ -236,6 +252,118 @@ els.btnStop.addEventListener("click", async () => {
   }
 });
 
+/* ---------- presets ---------- */
+
+/* Flip a delete button into a "SURE?" confirm for a beat instead of
+   popping a browser dialog; the second click within 3s commits. */
+function armButton(btn, onConfirm) {
+  if (btn.classList.contains("armed")) {
+    btn.disarm();
+    onConfirm();
+    return;
+  }
+  const original = btn.textContent;
+  const timer = setTimeout(() => btn.disarm(), 3000);
+  btn.disarm = () => {
+    clearTimeout(timer);
+    btn.classList.remove("armed");
+    btn.textContent = original;
+  };
+  btn.classList.add("armed");
+  btn.textContent = "SURE?";
+}
+
+async function loadPresets() {
+  try {
+    const data = await api("/presets");
+    state.presets = data.presets;
+    renderPresets();
+  } catch (err) {
+    els.presetList.innerHTML =
+      '<div class="empty-note">failed to load presets — is the server up?</div>';
+  }
+}
+
+function renderPresets() {
+  els.presetList.innerHTML = "";
+  els.presetCount.textContent = `${state.presets.length}`;
+  if (!state.presets.length) {
+    els.presetList.innerHTML =
+      '<div class="empty-note">no presets yet — tune an effect below, then SAVE PRESET.</div>';
+    return;
+  }
+
+  for (const p of state.presets) {
+    const tile = document.createElement("div");
+    tile.className = "preset-tile";
+    tile.dataset.name = p.name;
+    tile.innerHTML = `
+      <button type="button" class="preset-launch" title="Launch preset">
+        <span class="preset-live" hidden>● LIVE</span>
+        <span class="preset-name"></span>
+        <span class="preset-sub"></span>
+      </button>
+      <div class="preset-actions">
+        <button type="button" class="btn-icon preset-edit" title="Edit preset">EDIT</button>
+        <button type="button" class="btn-icon danger preset-delete" title="Delete preset">✕</button>
+      </div>`;
+    tile.querySelector(".preset-name").textContent = p.name;
+    tile.querySelector(".preset-sub").textContent = p.description
+      ? `${p.effect} · ${p.description}`
+      : p.effect;
+
+    tile.querySelector(".preset-launch").addEventListener("click", () =>
+      startPreset(p.name)
+    );
+    tile.querySelector(".preset-edit").addEventListener("click", () =>
+      editPreset(p)
+    );
+    const del = tile.querySelector(".preset-delete");
+    del.addEventListener("click", () =>
+      armButton(del, () => deletePreset(p.name))
+    );
+
+    els.presetList.appendChild(tile);
+  }
+
+  // Re-mark the live tile after a rebuild.
+  if (state.runningPreset) {
+    const tile = els.presetList.querySelector(
+      `.preset-tile[data-name="${CSS.escape(state.runningPreset)}"]`
+    );
+    if (tile) {
+      tile.classList.add("running");
+      tile.querySelector(".preset-live").hidden = false;
+    }
+  }
+}
+
+async function startPreset(name) {
+  try {
+    await api(`/presets/${encodeURIComponent(name)}/start`, { method: "POST" });
+    toast(`${name} started`);
+  } catch (err) {
+    toast(`Launch failed: ${err.message}`, true);
+  }
+}
+
+async function deletePreset(name) {
+  try {
+    await api(`/presets/${encodeURIComponent(name)}`, { method: "DELETE" });
+    toast(`${name} deleted`);
+    if (state.editingPreset === name) hidePresetSave();
+    await loadPresets();
+  } catch (err) {
+    toast(`Delete failed: ${err.message}`, true);
+  }
+}
+
+/* Open the effect's config panel prefilled with the preset's saved args
+   and the save form prefilled with its name, ready to tweak + re-save. */
+async function editPreset(p) {
+  await selectEffect(p.effect, p);
+}
+
 /* ---------- effects ---------- */
 
 async function loadEffects() {
@@ -264,14 +392,12 @@ async function loadEffects() {
   }
 }
 
-async function selectEffect(name) {
-  if (state.selected === name) {
+/* Open the config panel for an effect. When `preset` is given the form
+   is prefilled with its saved args and the save form with its name. */
+async function selectEffect(name, preset = null) {
+  if (!preset && state.selected === name) {
     closeConfig(); // clicking the selected effect again collapses it
     return;
-  }
-  state.selected = name;
-  for (const tile of els.effectGrid.querySelectorAll(".effect-tile")) {
-    tile.classList.toggle("selected", tile.dataset.name === name);
   }
 
   if (!state.schemas.has(name)) {
@@ -284,9 +410,19 @@ async function selectEffect(name) {
   }
   const info = state.schemas.get(name);
 
+  state.selected = name;
+  for (const tile of els.effectGrid.querySelectorAll(".effect-tile")) {
+    tile.classList.toggle("selected", tile.dataset.name === name);
+  }
+
   els.configTitle.textContent = name;
   els.configDesc.textContent = info.description;
-  buildConfigForm(info.args);
+  buildConfigForm(info.args, preset ? preset.args : {});
+  if (preset) {
+    openPresetSave(preset.name, preset.description);
+  } else {
+    hidePresetSave();
+  }
   els.effectConfig.hidden = false;
   els.effectConfig.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -294,6 +430,7 @@ async function selectEffect(name) {
 function closeConfig() {
   els.effectConfig.hidden = true;
   state.selected = null;
+  hidePresetSave();
   for (const tile of els.effectGrid.querySelectorAll(".effect-tile")) {
     tile.classList.remove("selected");
   }
@@ -301,10 +438,15 @@ function closeConfig() {
 
 els.configClose.addEventListener("click", closeConfig);
 
-/* Build one control per option in the effect's schema. */
-function buildConfigForm(args) {
+/* Build one control per option in the effect's schema. `values` (saved
+   preset args) override the schema defaults where present. */
+function buildConfigForm(args, values = {}) {
   els.configForm.innerHTML = "";
-  for (const opt of args) {
+  for (const schemaOpt of args) {
+    const opt =
+      schemaOpt.name in values
+        ? { ...schemaOpt, default: values[schemaOpt.name] }
+        : schemaOpt;
     const wrap = document.createElement("div");
     wrap.className = "opt";
     wrap.dataset.name = opt.name;
@@ -425,6 +567,82 @@ els.btnStart.addEventListener("click", async () => {
   }
 });
 
+/* ---------- save-as-preset form ---------- */
+
+function openPresetSave(name = "", description = "") {
+  state.editingPreset = name || null;
+  els.presetName.value = name;
+  els.presetDesc.value = description;
+  disarmPresetSave();
+  els.presetSave.hidden = false;
+}
+
+function hidePresetSave() {
+  state.editingPreset = null;
+  els.presetSave.hidden = true;
+  els.presetName.value = "";
+  els.presetDesc.value = "";
+  disarmPresetSave();
+}
+
+let presetSaveArmTimer = null;
+function disarmPresetSave() {
+  clearTimeout(presetSaveArmTimer);
+  delete els.presetSaveConfirm.dataset.armed;
+  els.presetSaveConfirm.textContent = "SAVE";
+}
+
+els.btnSavePreset.addEventListener("click", () => {
+  if (els.presetSave.hidden) {
+    openPresetSave();
+    els.presetName.focus();
+  } else {
+    hidePresetSave();
+  }
+});
+
+els.presetSaveCancel.addEventListener("click", hidePresetSave);
+els.presetName.addEventListener("input", disarmPresetSave);
+
+els.presetSave.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!state.selected) return;
+  const name = els.presetName.value.trim();
+
+  // Saving over someone else's preset name needs a second click — unless
+  // the form was opened from that very preset, where updating is the point.
+  const clobbers =
+    name !== state.editingPreset &&
+    state.presets.some((p) => p.name === name);
+  if (clobbers && els.presetSaveConfirm.dataset.armed !== name) {
+    els.presetSaveConfirm.dataset.armed = name;
+    els.presetSaveConfirm.textContent = "OVERWRITE?";
+    clearTimeout(presetSaveArmTimer);
+    presetSaveArmTimer = setTimeout(disarmPresetSave, 3000);
+    return;
+  }
+
+  els.presetSaveConfirm.disabled = true;
+  try {
+    await api(`/presets/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        effect: state.selected,
+        args: collectArgs(),
+        description: els.presetDesc.value.trim(),
+      }),
+    });
+    toast(`preset ${name} saved`);
+    hidePresetSave();
+    await loadPresets();
+  } catch (err) {
+    disarmPresetSave();
+    toast(`Save failed: ${err.message}`, true);
+  } finally {
+    els.presetSaveConfirm.disabled = false;
+  }
+});
+
 /* ---------- manual controls ---------- */
 
 const SWATCHES = [
@@ -507,3 +725,4 @@ els.brightness.addEventListener("input", () => {
 sizeCanvases();
 connect();
 loadEffects();
+loadPresets();

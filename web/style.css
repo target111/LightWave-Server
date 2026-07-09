@@ -136,6 +136,13 @@ a:hover { text-decoration: underline; }
   align-items: start;
 }
 
+.col-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
 @media (min-width: 860px) {
   .panel { padding: 28px 24px 60px; }
   .columns { grid-template-columns: 3fr 2fr; }
@@ -286,8 +293,7 @@ a:hover { text-decoration: underline; }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; border-color: var(--line); }
 
 .btn-start {
-  width: 100%;
-  margin-top: 16px;
+  flex: 1;
   color: #041018;
   background: linear-gradient(90deg, var(--cyan), #7e80ff);
   border: none;
@@ -367,6 +373,81 @@ a:hover { text-decoration: underline; }
 
 .empty-note { color: var(--text-faint); font-size: 13px; padding: 8px 0; }
 
+/* ---------- presets ---------- */
+
+.preset-list { display: flex; flex-direction: column; gap: 10px; }
+
+.preset-tile {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.preset-tile:hover { border-color: var(--line-bright); background: #141824; }
+.preset-tile.running {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--panel-2), var(--panel-2)) padding-box,
+    var(--spectrum) border-box;
+}
+
+.preset-launch {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-display);
+  padding: 12px 6px 12px 14px;
+  min-height: 44px;
+}
+
+.preset-name { font-weight: 600; font-size: 13px; letter-spacing: 0.05em; }
+
+.preset-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-live {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  color: var(--cyan);
+}
+
+.preset-actions { display: flex; gap: 2px; padding-right: 8px; flex: none; }
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 8px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-icon:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.btn-icon.danger:hover { color: var(--danger); }
+.btn-icon.armed { color: var(--danger); }
+
 /* ---------- effect config ---------- */
 
 .effect-config {
@@ -411,6 +492,39 @@ a:hover { text-decoration: underline; }
 }
 
 .opt-desc { font-size: 11px; color: var(--text-faint); line-height: 1.4; }
+
+.config-actions { display: flex; gap: 10px; margin-top: 16px; }
+.config-actions .btn { flex: none; }
+.config-actions .btn-start { flex: 1; }
+
+/* ---------- save-as-preset form ---------- */
+
+.preset-save {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px dashed var(--line-bright);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.preset-save input[type="text"] {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-height: 44px;
+  width: 100%;
+}
+.preset-save input[type="text"]:focus { outline: none; border-color: var(--cyan); }
+/* Flag a bad name once there's something to judge (not while empty). */
+.preset-save input[type="text"]:invalid:not(:placeholder-shown) { border-color: var(--warn); }
+
+.preset-save-actions { display: flex; align-items: center; gap: 10px; }
 
 /* ---------- inputs ---------- */
 

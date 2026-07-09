@@ -58,6 +58,19 @@
 
   <div class="columns">
 
+    <div class="col-stack">
+
+    <!-- Presets -->
+    <section class="card">
+      <div class="section-head">
+        <h2 class="section-title">PRESETS</h2>
+        <span class="mono-tag" id="preset-count"></span>
+      </div>
+      <div class="preset-list" id="preset-list">
+        <div class="empty-note">loading presets…</div>
+      </div>
+    </section>
+
     <!-- Effects -->
     <section class="card">
       <div class="section-head">
@@ -75,9 +88,33 @@
         </div>
         <p class="config-desc" id="config-desc"></p>
         <form id="config-form" class="config-form"></form>
-        <button class="btn btn-start" id="btn-start">START</button>
+        <div class="config-actions">
+          <button class="btn btn-start" id="btn-start">START</button>
+          <button class="btn" id="btn-save-preset">SAVE PRESET</button>
+        </div>
+        <form id="preset-save" class="preset-save" hidden>
+          <div class="control-row">
+            <label class="control-label" for="preset-name">PRESET NAME</label>
+            <input type="text" id="preset-name" required maxlength="64"
+                   pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,63}"
+                   placeholder="my-preset"
+                   autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="control-row">
+            <label class="control-label" for="preset-desc">DESCRIPTION <b>optional</b></label>
+            <input type="text" id="preset-desc" maxlength="200"
+                   placeholder="what this look is for"
+                   autocomplete="off" />
+          </div>
+          <div class="preset-save-actions">
+            <button type="submit" class="btn btn-apply" id="preset-save-confirm">SAVE</button>
+            <button type="button" class="btn-ghost" id="preset-save-cancel">CANCEL</button>
+          </div>
+        </form>
       </div>
     </section>
+
+    </div><!-- /col-stack -->
 
     <!-- Manual controls -->
     <section class="card" id="manual-card">
