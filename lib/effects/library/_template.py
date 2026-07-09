@@ -19,8 +19,10 @@ class Comet(EffectBase):
     # This docstring is the effect description shown by the API.
 
     # Options: one line each. The type comes from the annotation
-    # (int, float, bool, or Color); values arriving over the API are
-    # coerced, checked against min/max, and set as instance attributes.
+    # (int, float, bool, Color, or str); values arriving over the API are
+    # coerced, checked against min/max (or choices), and set as instance
+    # attributes. A str option must list its `choices` and renders as a
+    # dropdown.
     #
     # Conventions: times in seconds, sizes in pixels, rates per second,
     # probabilities 0.0-1.0. Unitless knobs are multipliers where 1.0 is
@@ -31,6 +33,9 @@ class Comet(EffectBase):
     color: Color = option((0, 200, 255), "Comet color")
     tail_fade: float = option(
         1.0, "Seconds for the tail to fade out", min=0.0
+    )
+    direction: str = option(
+        "forward", "Sweep direction", choices=["forward", "reverse"]
     )
 
     _BASE_SPEED = 30.0  # pixels/second at speed=1.0
@@ -50,9 +55,10 @@ class Comet(EffectBase):
         # pushes the buffer to the LEDs after every tick. The buffer
         # persists between frames; self.clear() / self.fill(color) reset
         # it. See lib.effects.colors and lib.effects.anim for helpers.
-        self.position += self._BASE_SPEED * self.speed * dt
-        if self.position >= self.n:
-            self.position = 0.0  # wrap around to the start
+        step = self._BASE_SPEED * self.speed * dt
+        if self.direction == "reverse":
+            step = -step
+        self.position = (self.position + step) % self.n  # wrap either way
 
         self.tail.decay(dt)
         self.tail[int(self.position)] = 1.0

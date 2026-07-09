@@ -32,6 +32,9 @@ _COERCERS: dict[str, Callable[[Any], Any]] = {
     "float": float,
     "color": _coerce_color,
     "bool": _coerce_bool,
+    # Membership against `choices` is checked in _resolve_config, which
+    # has the option in hand; here we only normalize to a string.
+    "enum": str,
 }
 
 
@@ -46,11 +49,13 @@ class Option:
         *,
         min: float | None = None,
         max: float | None = None,
+        choices: list[str] | None = None,
     ):
         self.default = default
         self.description = description
         self.min = min
         self.max = max
+        self.choices = choices
         self.name = ""  # filled in from the attribute name
         self.type = ""  # filled in from the annotation
 
@@ -65,6 +70,8 @@ class Option:
             entry["min"] = self.min
         if self.max is not None:
             entry["max"] = self.max
+        if self.choices is not None:
+            entry["choices"] = self.choices
         return entry
 
 
@@ -74,20 +81,26 @@ def option(
     *,
     min: float | None = None,
     max: float | None = None,
+    choices: list[str] | None = None,
 ) -> Any:
     """Declare an effect option in a class body:
 
         speed: float = option(1.0, "Speed multiplier", min=0.0)
+        mode: str = option("warm", "Palette", choices=["warm", "cool"])
 
     The option's type comes from the annotation (`int`, `float`, `bool`,
-    or `Color`). Values passed to the effect are coerced to that type,
-    checked against `min`/`max`, and set as an instance attribute, so the
-    effect simply reads `self.speed`.
+    `Color`, or `str`). Values passed to the effect are coerced to that
+    type, checked against `min`/`max` (numbers) or `choices` (`str`), and
+    set as an instance attribute, so the effect simply reads `self.speed`.
+
+    A `str` option must supply a non-empty `choices` list — the value is
+    validated against it and the API renders a dropdown — so options stay
+    a closed, self-describing set rather than free text.
 
     Typed as `Any` (like `dataclasses.field`) so type checkers accept the
     assignment.
     """
-    return Option(default, description, min=min, max=max)
+    return Option(default, description, min=min, max=max, choices=choices)
 
 
 def _option_type(cls_name: str, name: str, annotation: Any) -> str:
@@ -97,14 +110,41 @@ def _option_type(cls_name: str, name: str, annotation: Any) -> str:
         return "float"
     if annotation is bool:
         return "bool"
+    if annotation is str:
+        return "enum"
     # Color is tuple[int, int, int]; a literal tuple annotation compares
     # equal, so this covers both spellings.
     if annotation == Color:
         return "color"
     raise TypeError(
         f"{cls_name}.{name}: unsupported option annotation {annotation!r}; "
-        "use int, float, bool, or Color"
+        "use int, float, bool, str, or Color"
     )
+
+
+def _check_choices(cls_name: str, opt: "Option") -> None:
+    """Enforce that `choices` and a `str`/enum option go together: a str
+    option needs a non-empty list of string choices whose members include
+    the default, and `choices` is meaningless on any other type."""
+    if opt.type == "enum":
+        if not opt.choices:
+            raise TypeError(
+                f"{cls_name}.{opt.name}: a str option needs a non-empty "
+                "choices= list"
+            )
+        if any(not isinstance(c, str) for c in opt.choices):
+            raise TypeError(
+                f"{cls_name}.{opt.name}: choices must all be strings"
+            )
+        if opt.default not in opt.choices:
+            raise ValueError(
+                f"{cls_name}.{opt.name}: default {opt.default!r} is not "
+                f"one of choices {opt.choices}"
+            )
+    elif opt.choices is not None:
+        raise TypeError(
+            f"{cls_name}.{opt.name}: choices= only applies to str options"
+        )
 
 
 class EffectBase(abc.ABC, threading.Thread):
@@ -149,6 +189,7 @@ class EffectBase(abc.ABC, threading.Thread):
                 )
             value.name = name
             value.type = _option_type(cls.__name__, name, annotations[name])
+            _check_choices(cls.__name__, value)
             # Drop the marker so only the resolved instance attribute
             # remains; the annotation stays for type checkers.
             delattr(cls, name)
@@ -222,6 +263,11 @@ class EffectBase(abc.ABC, threading.Thread):
                 raise ValueError(
                     f"{cls.__name__}: option {name!r} must be "
                     f"<= {opt.max}, got {value!r}"
+                )
+            if opt.choices is not None and value not in opt.choices:
+                raise ValueError(
+                    f"{cls.__name__}: option {name!r} must be one of "
+                    f"{opt.choices}, got {value!r}"
                 )
 
             resolved[name] = value

@@ -489,6 +489,20 @@ input[type="number"] {
 }
 input[type="number"]:focus { outline: none; border-color: var(--cyan); }
 
+.opt select {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.opt select:focus { outline: none; border-color: var(--cyan); }
+.opt select:disabled { opacity: 0.35; cursor: not-allowed; }
+
 /* toggle */
 .toggle {
   position: relative;

@@ -13,6 +13,9 @@ class CandyCane(EffectBase):
     stripe_width: int = option(5, "Width of each stripe in pixels", min=1)
     color1: Color = option((255, 0, 0), "First stripe color")
     color2: Color = option((255, 255, 255), "Second stripe color")
+    direction: str = option(
+        "forward", "Rotation direction", choices=["forward", "reverse"]
+    )
 
     _BASE_SPEED = 20.0  # pixels/second at speed=1.0
 
@@ -28,7 +31,7 @@ class CandyCane(EffectBase):
             else:
                 self.pixels[i] = self.color2
 
-        self.offset = wrap(
-            self.offset + self._BASE_SPEED * self.speed * dt,
-            self.stripe_width * 2,
-        )
+        step = self._BASE_SPEED * self.speed * dt
+        if self.direction == "reverse":
+            step = -step
+        self.offset = wrap(self.offset + step, self.stripe_width * 2)

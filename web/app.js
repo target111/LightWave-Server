@@ -354,6 +354,20 @@ function buildOptionInput(opt, valueEl) {
     return input;
   }
 
+  if (opt.type === "enum") {
+    const select = document.createElement("select");
+    for (const choice of opt.choices) {
+      const o = document.createElement("option");
+      o.value = choice;
+      o.textContent = choice;
+      o.selected = choice === opt.default;
+      select.appendChild(o);
+    }
+    valueEl.textContent = opt.default;
+    select.addEventListener("change", () => (valueEl.textContent = select.value));
+    return select;
+  }
+
   // int / float — slider when the range is bounded, number box otherwise
   const bounded = opt.min !== undefined && opt.max !== undefined;
   const input = document.createElement("input");
@@ -383,9 +397,10 @@ function collectArgs() {
   const args = {};
   for (const wrap of els.configForm.querySelectorAll(".opt")) {
     const type = wrap.dataset.type;
-    const input = wrap.querySelector("input");
+    const input = wrap.querySelector("input, select");
     if (type === "bool") args[wrap.dataset.name] = input.checked;
     else if (type === "color") args[wrap.dataset.name] = hexToRgb(input.value);
+    else if (type === "enum") args[wrap.dataset.name] = input.value;
     else if (input.value !== "") args[wrap.dataset.name] = Number(input.value);
   }
   return args;

@@ -81,6 +81,32 @@ def test_start_bad_args_is_rejected(client):
     assert client.get("/effects/running").status_code == 404
 
 
+def test_enum_option_schema_and_validation(client):
+    # A str option is advertised with its choices so the UI can render a
+    # dropdown, and the value is validated on start.
+    direction = next(
+        a
+        for a in client.get("/effects/CandyCane").json()["args"]
+        if a["name"] == "direction"
+    )
+    assert direction["type"] == "enum"
+    assert direction["choices"] == ["forward", "reverse"]
+
+    ok = client.post(
+        "/effects/start",
+        json={"effect_name": "CandyCane", "args": {"direction": "reverse"}},
+    )
+    assert ok.status_code == 202
+    client.post("/effects/stop")
+
+    bad = client.post(
+        "/effects/start",
+        json={"effect_name": "CandyCane", "args": {"direction": "sideways"}},
+    )
+    assert bad.status_code == 503
+    assert client.get("/effects/running").status_code == 404
+
+
 # ---------- /leds ----------
 
 
@@ -139,6 +165,7 @@ def test_preset_validation(client):
     assert _save_cozy(client, effect="Nonsense").status_code == 422
     assert _save_cozy(client, args={"nonsense": 1}).status_code == 422
     assert _save_cozy(client, args={"stripe_width": 0}).status_code == 422
+    assert _save_cozy(client, args={"direction": "sideways"}).status_code == 422
 
     # Presets must not shadow effect names, and names must stay
     # URL/CLI-friendly.
