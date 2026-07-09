@@ -343,16 +343,19 @@ a:hover { text-decoration: underline; }
   gap: 4px;
   transition: border-color 0.15s, background 0.15s;
 }
-.effect-tile:hover { border-color: var(--line-bright); background: #141824; }
+.effect-tile:hover,
+.preset-tile:hover { border-color: var(--line-bright); background: #141824; }
 .effect-tile.selected { border-color: var(--cyan); }
-.effect-tile.running {
+.effect-tile.running,
+.preset-tile.running {
   border-color: transparent;
   background:
     linear-gradient(var(--panel-2), var(--panel-2)) padding-box,
     var(--spectrum) border-box;
 }
 
-.effect-tile-name { font-weight: 600; font-size: 13px; letter-spacing: 0.05em; }
+.effect-tile-name,
+.preset-name { font-weight: 600; font-size: 13px; letter-spacing: 0.05em; }
 
 .effect-tile-desc {
   font-size: 11px;
@@ -364,7 +367,8 @@ a:hover { text-decoration: underline; }
   overflow: hidden;
 }
 
-.effect-tile-live {
+.effect-tile-live,
+.preset-live {
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.25em;
@@ -386,13 +390,6 @@ a:hover { text-decoration: underline; }
   border-radius: 8px;
   transition: border-color 0.15s, background 0.15s;
 }
-.preset-tile:hover { border-color: var(--line-bright); background: #141824; }
-.preset-tile.running {
-  border-color: transparent;
-  background:
-    linear-gradient(var(--panel-2), var(--panel-2)) padding-box,
-    var(--spectrum) border-box;
-}
 
 .preset-launch {
   flex: 1;
@@ -410,8 +407,6 @@ a:hover { text-decoration: underline; }
   min-height: 44px;
 }
 
-.preset-name { font-weight: 600; font-size: 13px; letter-spacing: 0.05em; }
-
 .preset-sub {
   font-size: 11px;
   color: var(--text-dim);
@@ -419,13 +414,6 @@ a:hover { text-decoration: underline; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.preset-live {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.25em;
-  color: var(--cyan);
 }
 
 .preset-actions { display: flex; gap: 2px; padding-right: 8px; flex: none; }

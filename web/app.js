@@ -198,6 +198,16 @@ function connect() {
 
 /* ---------- running effect state ---------- */
 
+/* Mark the tile whose data-name matches `activeName` as running (and show
+   its live badge), clearing the marker on every other tile. */
+function markLive(container, tileSel, liveSel, activeName) {
+  for (const tile of container.querySelectorAll(tileSel)) {
+    const isRunning = tile.dataset.name === activeName;
+    tile.classList.toggle("running", isRunning);
+    tile.querySelector(liveSel).hidden = !isRunning;
+  }
+}
+
 function setRunning(name, preset = null) {
   state.running = name;
   state.runningPreset = preset;
@@ -209,17 +219,8 @@ function setRunning(name, preset = null) {
     .querySelectorAll("input, button")
     .forEach((el) => (el.disabled = !!name));
 
-  for (const tile of els.effectGrid.querySelectorAll(".effect-tile")) {
-    const isRunning = tile.dataset.name === name;
-    tile.classList.toggle("running", isRunning);
-    tile.querySelector(".effect-tile-live").hidden = !isRunning;
-  }
-
-  for (const tile of els.presetList.querySelectorAll(".preset-tile")) {
-    const isRunning = !!name && tile.dataset.name === preset;
-    tile.classList.toggle("running", isRunning);
-    tile.querySelector(".preset-live").hidden = !isRunning;
-  }
+  markLive(els.effectGrid, ".effect-tile", ".effect-tile-live", name);
+  markLive(els.presetList, ".preset-tile", ".preset-live", preset);
 
   if (name) {
     els.npName.textContent = preset ? `${preset} · ${name}` : name;
@@ -254,9 +255,10 @@ els.btnStop.addEventListener("click", async () => {
 
 /* ---------- presets ---------- */
 
-/* Flip a delete button into a "SURE?" confirm for a beat instead of
-   popping a browser dialog; the second click within 3s commits. */
-function armButton(btn, onConfirm) {
+/* Flip a button into a confirm label for a beat instead of popping a
+   browser dialog; the second click within 3s commits. `btn.disarm()` (set
+   here) cancels a pending confirm; it's a no-op to call before first use. */
+function armButton(btn, onConfirm, label = "SURE?") {
   if (btn.classList.contains("armed")) {
     btn.disarm();
     onConfirm();
@@ -270,7 +272,7 @@ function armButton(btn, onConfirm) {
     btn.textContent = original;
   };
   btn.classList.add("armed");
-  btn.textContent = "SURE?";
+  btn.textContent = label;
 }
 
 async function loadPresets() {
@@ -285,13 +287,13 @@ async function loadPresets() {
 }
 
 function renderPresets() {
-  els.presetList.innerHTML = "";
   els.presetCount.textContent = `${state.presets.length}`;
   if (!state.presets.length) {
     els.presetList.innerHTML =
       '<div class="empty-note">no presets yet — tune an effect below, then SAVE PRESET.</div>';
     return;
   }
+  els.presetList.innerHTML = "";
 
   for (const p of state.presets) {
     const tile = document.createElement("div");
@@ -316,7 +318,7 @@ function renderPresets() {
       startPreset(p.name)
     );
     tile.querySelector(".preset-edit").addEventListener("click", () =>
-      editPreset(p)
+      selectEffect(p.effect, p)
     );
     const del = tile.querySelector(".preset-delete");
     del.addEventListener("click", () =>
@@ -326,16 +328,8 @@ function renderPresets() {
     els.presetList.appendChild(tile);
   }
 
-  // Re-mark the live tile after a rebuild.
-  if (state.runningPreset) {
-    const tile = els.presetList.querySelector(
-      `.preset-tile[data-name="${CSS.escape(state.runningPreset)}"]`
-    );
-    if (tile) {
-      tile.classList.add("running");
-      tile.querySelector(".preset-live").hidden = false;
-    }
-  }
+  // A rebuild wipes the .running marker; re-apply it the way loadEffects does.
+  if (state.running) setRunning(state.running, state.runningPreset);
 }
 
 async function startPreset(name) {
@@ -356,12 +350,6 @@ async function deletePreset(name) {
   } catch (err) {
     toast(`Delete failed: ${err.message}`, true);
   }
-}
-
-/* Open the effect's config panel prefilled with the preset's saved args
-   and the save form prefilled with its name, ready to tweak + re-save. */
-async function editPreset(p) {
-  await selectEffect(p.effect, p);
 }
 
 /* ---------- effects ---------- */
@@ -573,7 +561,7 @@ function openPresetSave(name = "", description = "") {
   state.editingPreset = name || null;
   els.presetName.value = name;
   els.presetDesc.value = description;
-  disarmPresetSave();
+  els.presetSaveConfirm.disarm?.();
   els.presetSave.hidden = false;
 }
 
@@ -582,14 +570,7 @@ function hidePresetSave() {
   els.presetSave.hidden = true;
   els.presetName.value = "";
   els.presetDesc.value = "";
-  disarmPresetSave();
-}
-
-let presetSaveArmTimer = null;
-function disarmPresetSave() {
-  clearTimeout(presetSaveArmTimer);
-  delete els.presetSaveConfirm.dataset.armed;
-  els.presetSaveConfirm.textContent = "SAVE";
+  els.presetSaveConfirm.disarm?.();
 }
 
 els.btnSavePreset.addEventListener("click", () => {
@@ -602,26 +583,10 @@ els.btnSavePreset.addEventListener("click", () => {
 });
 
 els.presetSaveCancel.addEventListener("click", hidePresetSave);
-els.presetName.addEventListener("input", disarmPresetSave);
+// Editing the name invalidates a pending OVERWRITE? confirm.
+els.presetName.addEventListener("input", () => els.presetSaveConfirm.disarm?.());
 
-els.presetSave.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!state.selected) return;
-  const name = els.presetName.value.trim();
-
-  // Saving over someone else's preset name needs a second click — unless
-  // the form was opened from that very preset, where updating is the point.
-  const clobbers =
-    name !== state.editingPreset &&
-    state.presets.some((p) => p.name === name);
-  if (clobbers && els.presetSaveConfirm.dataset.armed !== name) {
-    els.presetSaveConfirm.dataset.armed = name;
-    els.presetSaveConfirm.textContent = "OVERWRITE?";
-    clearTimeout(presetSaveArmTimer);
-    presetSaveArmTimer = setTimeout(disarmPresetSave, 3000);
-    return;
-  }
-
+async function savePreset(name) {
   els.presetSaveConfirm.disabled = true;
   try {
     await api(`/presets/${encodeURIComponent(name)}`, {
@@ -636,10 +601,26 @@ els.presetSave.addEventListener("submit", async (e) => {
     hidePresetSave();
     await loadPresets();
   } catch (err) {
-    disarmPresetSave();
     toast(`Save failed: ${err.message}`, true);
   } finally {
     els.presetSaveConfirm.disabled = false;
+  }
+}
+
+els.presetSave.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!state.selected) return;
+  const name = els.presetName.value.trim();
+
+  // Saving over someone else's preset name needs a confirming second click —
+  // unless the form was opened from that very preset, where updating is the
+  // point. armButton owns the arm/confirm dance (shared with delete).
+  const clobbers =
+    name !== state.editingPreset && state.presets.some((p) => p.name === name);
+  if (clobbers) {
+    armButton(els.presetSaveConfirm, () => savePreset(name), "OVERWRITE?");
+  } else {
+    savePreset(name);
   }
 });
 
