@@ -14,6 +14,11 @@ class LEDController:
     def __init__(self, driver: LEDDriver):
         self._driver = driver
         self._lock = threading.Lock()
+        # The solid color the strip was last set to via set_color(), or
+        # None when black or when an effect has painted over it. Tracked
+        # here so the API can report "solid color" as state instead of
+        # clients reconstructing it from the pixel buffer.
+        self._color: Color | None = None
         # Called (from whichever thread mutated the state) after every
         # write. Must be cheap and thread-safe; used to fan out state to
         # websocket clients.
@@ -28,6 +33,12 @@ class LEDController:
         with self._lock:
             return self._driver.brightness
 
+    @property
+    def color(self) -> Color | None:
+        """The current solid color, or None (off or effect-driven)."""
+        with self._lock:
+            return self._color
+
     def _notify(self) -> None:
         cb = self.on_change
         if cb is not None:
@@ -38,16 +49,28 @@ class LEDController:
         with self._lock:
             return self._driver.snapshot(), self._driver.brightness
 
+    def snapshot_with_color(self) -> tuple[list[Color], float, Color | None]:
+        """Consistent copy of the pixel buffer, brightness, and solid
+        color in one lock acquisition."""
+        with self._lock:
+            return (
+                self._driver.snapshot(),
+                self._driver.brightness,
+                self._color,
+            )
+
     def set_pixels(self, colors: list[Color]) -> None:
         """Replace the whole frame in one lock acquisition."""
         with self._lock:
             self._driver.set_pixels(colors)
+            self._color = None
         self._notify()
 
     def set_color(self, color: Color) -> None:
         with self._lock:
             self._driver.fill(color)
             self._driver.show()
+            self._color = color if color != (0, 0, 0) else None
         self._notify()
 
     def set_brightness(self, brightness: float) -> None:

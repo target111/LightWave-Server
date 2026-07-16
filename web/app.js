@@ -1,5 +1,6 @@
-/* LightWave control panel — talks to the FastAPI backend over REST and
-   receives live pixel frames over /ws. No build step, no dependencies. */
+/* LightWave control panel — talks to the FastAPI backend over REST
+   (under /api) and receives live pixel frames over /api/ws. No build
+   step, no dependencies. */
 
 "use strict";
 
@@ -68,8 +69,10 @@ function toast(msg, isError = false) {
 
 /* ---------- REST helpers ---------- */
 
+const API_BASE = "/api";
+
 async function api(path, options = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
@@ -121,9 +124,9 @@ function renderStrip(pixels, brightness) {
     c.drawImage(offscreen, 0, 0, c.canvas.width, c.canvas.height);
   }
 
-  // The server owns brightness (an effect start resets it to 100%, and
-  // another device may change it) — follow it unless the user is
-  // interacting with the slider right now.
+  // The server owns brightness (another device may change it at any
+  // time) — follow it unless the user is interacting with the slider
+  // right now.
   if (document.activeElement !== els.brightness) {
     const pct = Math.round(brightness * 100);
     els.brightness.value = pct;
@@ -159,7 +162,7 @@ function setLink(stateName, label) {
 
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  const ws = new WebSocket(`${proto}//${location.host}/ws`);
+  const ws = new WebSocket(`${proto}//${location.host}${API_BASE}/ws`);
   ws.binaryType = "arraybuffer";
 
   ws.onopen = () => {
@@ -228,8 +231,10 @@ function setRunning(name, preset = null) {
     // The websocket only says *what* runs; ask the API since when so the
     // elapsed readout survives page reloads.
     api("/effects/running")
-      .then((info) => {
-        state.runningStart = Date.now() - info.duration_seconds * 1000;
+      .then(({ running }) => {
+        if (running) {
+          state.runningStart = Date.now() - running.duration_seconds * 1000;
+        }
       })
       .catch(() => {});
   } else {
@@ -540,12 +545,9 @@ els.btnStart.addEventListener("click", async () => {
   if (!state.selected) return;
   els.btnStart.disabled = true;
   try {
-    await api("/effects/start", {
+    await api(`/effects/${encodeURIComponent(state.selected)}/start`, {
       method: "POST",
-      body: JSON.stringify({
-        effect_name: state.selected,
-        args: collectArgs(),
-      }),
+      body: JSON.stringify({ args: collectArgs() }),
     });
     toast(`${state.selected} started`);
   } catch (err) {
@@ -664,8 +666,8 @@ els.colorInput.addEventListener("input", () => {
 
 async function setColor(hex) {
   try {
-    await api("/leds/color/set", {
-      method: "POST",
+    await api("/leds/color", {
+      method: "PUT",
       body: JSON.stringify({ color: hex }),
     });
   } catch (err) {
@@ -677,7 +679,7 @@ els.btnColor.addEventListener("click", () => setColor(els.colorInput.value));
 
 els.btnClear.addEventListener("click", async () => {
   try {
-    await api("/leds/color/clear", { method: "POST" });
+    await api("/leds/color", { method: "DELETE" });
   } catch (err) {
     toast(`Clear failed: ${err.message}`, true);
   }
@@ -692,7 +694,7 @@ els.brightness.addEventListener("input", () => {
   brightnessTimer = setTimeout(async () => {
     try {
       await api("/leds/brightness", {
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify({ brightness: els.brightness.value / 100 }),
       });
     } catch (err) {

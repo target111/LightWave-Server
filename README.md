@@ -10,7 +10,7 @@ Runs on a Raspberry Pi; a mock backend allows development on any machine.
 
 ## Setup
 
-Requires Python 3.14+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync               # server only
@@ -39,22 +39,29 @@ Interactive API docs: `http://<host>:8000/docs`
 
 ## API
 
-| Method | Path                    | Description                            |
-| ------ | ----------------------- | -------------------------------------- |
-| GET    | `/effects`              | List available effects                 |
-| GET    | `/effects/running`      | Currently running effect               |
-| GET    | `/effects/{name}`       | Effect description and options         |
-| POST   | `/effects/start`        | Start an effect                        |
-| POST   | `/effects/stop`         | Stop the running effect (fades out)    |
-| GET    | `/presets`              | List saved presets                     |
-| GET    | `/presets/{name}`       | One saved preset                       |
-| PUT    | `/presets/{name}`       | Create or update a preset              |
-| DELETE | `/presets/{name}`       | Delete a preset                        |
-| POST   | `/presets/{name}/start` | Start the preset's effect              |
-| GET    | `/leds`                 | Current pixels and brightness          |
-| POST   | `/leds/color/set`       | Set a static color                     |
-| POST   | `/leds/color/clear`     | Turn all LEDs off                      |
-| POST   | `/leds/brightness`      | Set global brightness (0.0–1.0)        |
+All endpoints live under `/api`; the root serves the bundled web UI.
+
+| Method | Path                        | Description                              |
+| ------ | --------------------------- | ---------------------------------------- |
+| GET    | `/api/state`                | Strip summary (running, brightness, color, lit) |
+| GET    | `/api/effects`              | List available effects                   |
+| GET    | `/api/effects/running`      | Running effect, or `{"running": null}`   |
+| GET    | `/api/effects/{name}`       | Effect description and options           |
+| POST   | `/api/effects/{name}/start` | Start an effect (body: `{"args": {…}}`)  |
+| POST   | `/api/effects/stop`         | Stop the running effect (fades out); idempotent |
+| GET    | `/api/presets`              | List saved presets                       |
+| GET    | `/api/presets/{name}`       | One saved preset                         |
+| PUT    | `/api/presets/{name}`       | Create or update a preset                |
+| DELETE | `/api/presets/{name}`       | Delete a preset                          |
+| POST   | `/api/presets/{name}/start` | Start the preset's effect                |
+| GET    | `/api/leds`                 | Pixels, brightness, and solid color      |
+| PUT    | `/api/leds/color`           | Set a static color                       |
+| DELETE | `/api/leds/color`           | Turn all LEDs off                        |
+| PUT    | `/api/leds/brightness`      | Set global brightness (0.0–1.0)          |
+
+`/api/ws` streams live state: binary pixel frames (1 brightness byte +
+3 bytes per LED) plus a JSON status message when the running effect
+changes.
 
 A *preset* is a saved configuration of an effect — a name, the effect it
 runs, and the option values to run it with. Presets live in one JSON file
@@ -63,18 +70,18 @@ names must not collide with effect names.
 
 ```bash
 # Start an effect with custom options
-curl -X POST http://localhost:8000/effects/start \
+curl -X POST http://localhost:8000/api/effects/RainbowCycle/start \
   -H "Content-Type: application/json" \
-  -d '{"effect_name": "RainbowCycle", "args": {"speed": 2.5}}'
+  -d '{"args": {"speed": 2.5}}'
 
 # Save those options as a preset, then start it by name
-curl -X PUT http://localhost:8000/presets/party \
+curl -X PUT http://localhost:8000/api/presets/party \
   -H "Content-Type: application/json" \
   -d '{"effect": "RainbowCycle", "args": {"speed": 2.5}, "description": "fast rainbow"}'
-curl -X POST http://localhost:8000/presets/party/start
+curl -X POST http://localhost:8000/api/presets/party/start
 
 # Set a static color
-curl -X POST http://localhost:8000/leds/color/set \
+curl -X PUT http://localhost:8000/api/leds/color \
   -H "Content-Type: application/json" \
   -d '{"color": "#FF0000"}'
 ```

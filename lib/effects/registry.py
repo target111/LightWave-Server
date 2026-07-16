@@ -32,8 +32,17 @@ class EffectRegistry:
                     and obj is not EffectBase
                     and obj.__module__ == module.__name__
                 ):
-                    self._effects[obj.__name__] = obj
-                    logger.info("Registered effect: %s", obj.__name__)
+                    if obj.NAME in self._effects:
+                        logger.error(
+                            "Effect name %r from %s already registered by "
+                            "%s; skipping",
+                            obj.NAME,
+                            obj.__qualname__,
+                            self._effects[obj.NAME].__qualname__,
+                        )
+                        continue
+                    self._effects[obj.NAME] = obj
+                    logger.info("Registered effect: %s", obj.NAME)
 
     def get(self, name: str) -> type[EffectBase]:
         if name not in self._effects:

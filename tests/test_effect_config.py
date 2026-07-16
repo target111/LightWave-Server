@@ -103,6 +103,36 @@ def test_animation_speed_is_frame_rate_independent(led):
     assert slow.offset == pytest.approx(fast.offset)
 
 
+def test_name_defaults_to_class_name():
+    class Plain(EffectBase):
+        def tick(self, dt):
+            pass
+
+    assert Plain.NAME == "Plain"
+
+
+def test_explicit_name_survives_and_is_not_inherited():
+    class Renamed(EffectBase):
+        # Simulates a class rename keeping its published API name.
+        NAME = "OldName"
+
+        def tick(self, dt):
+            pass
+
+    class Child(Renamed):
+        pass
+
+    assert Renamed.NAME == "OldName"
+    # A subclass gets its own default instead of the parent's public name.
+    assert Child.NAME == "Child"
+
+
+def test_registry_keys_effects_by_public_name():
+    registry = EffectRegistry()
+    assert registry.get("CandyCane") is CandyCane
+    assert CandyCane.NAME == "CandyCane"
+
+
 def test_option_clashing_with_thread_attribute_is_rejected():
     with pytest.raises(ValueError, match="clashes"):
 

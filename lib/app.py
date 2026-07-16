@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from lib.api.broadcast import FrameBroadcaster
 from lib.api.errors import register_exception_handlers
-from lib.api.routers import effects, leds, presets, ws
+from lib.api.routers import effects, leds, presets, state, ws
 from lib.config import Settings, build_driver
 from lib.drivers.controller import LEDController
 from lib.effects.registry import EffectRegistry
@@ -55,10 +55,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="LightWave", version="1.0.0", lifespan=lifespan)
     register_exception_handlers(app)
-    app.include_router(effects.router)
-    app.include_router(presets.router)
-    app.include_router(leds.router)
-    app.include_router(ws.router)
-    # Mounted last so API routes win; html=True serves index.html at "/".
+    # Everything API lives under /api (including /api/ws) so the static
+    # web app owns the rest of the namespace.
+    for router in (
+        effects.router,
+        presets.router,
+        leds.router,
+        state.router,
+        ws.router,
+    ):
+        app.include_router(router, prefix="/api")
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
     return app

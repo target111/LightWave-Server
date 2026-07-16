@@ -164,6 +164,11 @@ class EffectBase(abc.ABC, threading.Thread):
     where 1.0 is the designed look; the tuned base value lives in the
     effect as a named constant."""
 
+    # Public effect name: the key clients start it by and the string
+    # stored in presets. Defaults to the class name, so setting it is only
+    # needed to keep the published name stable across a class rename.
+    NAME: ClassVar[str]
+
     # Generated from option() declarations; consumed by the registry/API.
     CONFIG_SCHEMA: ClassVar[list[dict]] = []
     _options: ClassVar[dict[str, Option]] = {}
@@ -172,6 +177,10 @@ class EffectBase(abc.ABC, threading.Thread):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        # Checked against __dict__ so a subclass never inherits a parent's
+        # explicit NAME: each class defaults to its own name.
+        if "NAME" not in cls.__dict__:
+            cls.NAME = cls.__name__
         if "CONFIG_SCHEMA" in cls.__dict__:
             raise TypeError(
                 f"{cls.__name__}: CONFIG_SCHEMA is generated; declare "
@@ -204,7 +213,7 @@ class EffectBase(abc.ABC, threading.Thread):
         cls.CONFIG_SCHEMA = [opt.schema() for opt in options.values()]
 
     def __init__(self, led: LEDController, **kwargs):
-        super().__init__(daemon=True, name=self.__class__.__name__)
+        super().__init__(daemon=True, name=self.NAME)
         self.led = led
         self.n = led.count
         self.config = self._resolve_config(kwargs)
@@ -217,7 +226,7 @@ class EffectBase(abc.ABC, threading.Thread):
         # Fired from this thread when run() exits for any reason
         # (stopped, finished, crashed). Must be cheap and thread-safe.
         self.on_finished: Callable[[], None] | None = None
-        self.start_time = datetime.datetime.now()
+        self.start_time = datetime.datetime.now(datetime.UTC)
         self.setup()
 
     @classmethod
@@ -235,11 +244,11 @@ class EffectBase(abc.ABC, threading.Thread):
         if unknown:
             if strict:
                 raise ValueError(
-                    f"{cls.__name__}: unknown options {sorted(unknown)}"
+                    f"{cls.NAME}: unknown options {sorted(unknown)}"
                 )
             logger.warning(
                 "%s: ignoring unknown options %s",
-                cls.__name__,
+                cls.NAME,
                 sorted(unknown),
             )
 
@@ -250,23 +259,23 @@ class EffectBase(abc.ABC, threading.Thread):
                 value = _COERCERS[opt.type](value)
             except (TypeError, ValueError) as e:
                 raise ValueError(
-                    f"{cls.__name__}: bad value for option "
+                    f"{cls.NAME}: bad value for option "
                     f"{name!r}: {value!r}"
                 ) from e
 
             if opt.min is not None and value < opt.min:
                 raise ValueError(
-                    f"{cls.__name__}: option {name!r} must be "
+                    f"{cls.NAME}: option {name!r} must be "
                     f">= {opt.min}, got {value!r}"
                 )
             if opt.max is not None and value > opt.max:
                 raise ValueError(
-                    f"{cls.__name__}: option {name!r} must be "
+                    f"{cls.NAME}: option {name!r} must be "
                     f"<= {opt.max}, got {value!r}"
                 )
             if opt.choices is not None and value not in opt.choices:
                 raise ValueError(
-                    f"{cls.__name__}: option {name!r} must be one of "
+                    f"{cls.NAME}: option {name!r} must be one of "
                     f"{opt.choices}, got {value!r}"
                 )
 

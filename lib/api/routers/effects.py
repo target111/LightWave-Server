@@ -6,14 +6,33 @@ from lib.api.dependencies import get_effect_service
 from lib.api.schemas import (
     EffectInfo,
     EffectsListResponse,
-    EffectStartRequest,
     EffectSummary,
-    RunningEffectResponse,
-    StatusResponse,
+    RunningEffectInfo,
+    RunningResponse,
+    StartRequest,
+    StartResponse,
+    StopResponse,
 )
 from lib.services.effect import EffectService
 
 router = APIRouter(prefix="/effects", tags=["effects"])
+
+
+def running_info(service: EffectService) -> RunningEffectInfo | None:
+    """The running effect as clients see it, or None when idle. Shared
+    with the /state summary endpoint."""
+    eff = service.running
+    if eff is None:
+        return None
+    name = eff.NAME
+    now = datetime.datetime.now(datetime.UTC)
+    return RunningEffectInfo(
+        name=name,
+        description=service.registry.describe(name),
+        preset=service.running_preset,
+        start_time=eff.start_time,
+        duration_seconds=(now - eff.start_time).total_seconds(),
+    )
 
 
 @router.get("", response_model=EffectsListResponse)
@@ -27,25 +46,26 @@ def list_effects(service: EffectService = Depends(get_effect_service)):
     )
 
 
-@router.get("/running", response_model=RunningEffectResponse)
+# Declared before /{effect_name} so the literal path wins; "running" and
+# "stop" are therefore reserved effect names.
+@router.get("/running", response_model=RunningResponse)
 def get_running(service: EffectService = Depends(get_effect_service)):
-    eff = service.running
-    if eff is None:
-        raise HTTPException(404, "No effect running")
-
-    name = eff.__class__.__name__
-    return RunningEffectResponse(
-        name=name,
-        description=service.registry.describe(name),
-        preset=service.running_preset,
-        start_time=eff.start_time.isoformat(),
-        duration_seconds=(
-            datetime.datetime.now() - eff.start_time
-        ).total_seconds(),
-    )
+    return RunningResponse(running=running_info(service))
 
 
-@router.get("/{effect_name}", response_model=EffectInfo)
+@router.post("/stop", response_model=StopResponse)
+async def stop_effect(service: EffectService = Depends(get_effect_service)):
+    was_running = await service.stop()
+    return StopResponse(was_running=was_running)
+
+
+# exclude_none: an option's min/max/choices are omitted when it doesn't
+# declare them, not sent as null.
+@router.get(
+    "/{effect_name}",
+    response_model=EffectInfo,
+    response_model_exclude_none=True,
+)
 def get_effect(
     effect_name: str,
     service: EffectService = Depends(get_effect_service),
@@ -58,19 +78,15 @@ def get_effect(
     )
 
 
-@router.post("/start", response_model=StatusResponse, status_code=202)
+@router.post("/{effect_name}/start", response_model=StartResponse)
 async def start_effect(
-    body: EffectStartRequest,
+    effect_name: str,
+    body: StartRequest | None = None,
     service: EffectService = Depends(get_effect_service),
 ):
+    args = (body or StartRequest()).args
     try:
-        await service.start(body.effect_name, body.args)
+        await service.start(effect_name, args)
     except KeyError:
         raise HTTPException(404, "Effect not found")
-    return StatusResponse(status="started", effect=body.effect_name)
-
-
-@router.post("/stop", response_model=StatusResponse, status_code=202)
-async def stop_effect(service: EffectService = Depends(get_effect_service)):
-    await service.stop()
-    return StatusResponse(status="stopped")
+    return StartResponse(effect=effect_name)

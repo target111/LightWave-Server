@@ -5,7 +5,7 @@ from lib.api.schemas import (
     PresetBody,
     PresetRecord,
     PresetsListResponse,
-    StatusResponse,
+    StartResponse,
 )
 from lib.services.effect import EffectService
 from lib.services.presets import PresetStore
@@ -39,7 +39,7 @@ def delete_preset(name: str, store: PresetStore = Depends(get_preset_store)):
     store.delete(name)
 
 
-@router.post("/{name}/start", response_model=StatusResponse, status_code=202)
+@router.post("/{name}/start", response_model=StartResponse)
 async def start_preset(
     name: str,
     store: PresetStore = Depends(get_preset_store),
@@ -53,6 +53,4 @@ async def start_preset(
         raise HTTPException(
             422, f"Effect {preset['effect']!r} no longer exists"
         )
-    return StatusResponse(
-        status="started", effect=preset["effect"], preset=name
-    )
+    return StartResponse(effect=preset["effect"], preset=name)

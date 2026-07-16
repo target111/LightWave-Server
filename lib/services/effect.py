@@ -12,10 +12,6 @@ from lib.effects.registry import EffectRegistry
 logger = logging.getLogger(__name__)
 
 
-class NoEffectRunningError(Exception):
-    pass
-
-
 class EffectStartError(Exception):
     """Raised when an effect fails to construct (bad args, busy port...)."""
 
@@ -88,7 +84,7 @@ class EffectService:
     @property
     def running_name(self) -> str | None:
         eff = self.running
-        return None if eff is None else eff.__class__.__name__
+        return None if eff is None else eff.NAME
 
     @property
     def running_preset(self) -> str | None:
@@ -106,7 +102,6 @@ class EffectService:
         async with self._lock:
             self._loop = asyncio.get_running_loop()
             await self._stop_locked()
-            self._led.set_brightness(1.0)
             try:
                 effect = cls(self._led, **args)
             except Exception as e:
@@ -119,11 +114,15 @@ class EffectService:
             logger.info("Started effect %s with args=%s", name, args)
             return effect
 
-    async def stop(self) -> None:
+    async def stop(self) -> bool:
+        """Stop the current effect. Idempotent: returns whether there was
+        anything to stop, so callers can report it without treating an
+        already-idle strip as an error."""
         async with self._lock:
             if self._current is None:
-                raise NoEffectRunningError()
+                return False
             await self._stop_locked()
+            return True
 
     async def shutdown(self) -> None:
         async with self._lock:
