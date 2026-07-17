@@ -1,7 +1,7 @@
 <div align="center">
 <img src="./.github/logo.svg" width="200" height="200" alt="LightWave logo" />
 
-# LightWave Server
+# LightWave
 
 </div>
 
